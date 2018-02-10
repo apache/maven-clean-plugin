@@ -41,12 +41,12 @@ class GlobSelector
 
     private final String str;
 
-    public GlobSelector( String[] includes, String[] excludes )
+    GlobSelector( String[] includes, String[] excludes )
     {
         this( includes, excludes, false );
     }
 
-    public GlobSelector( String[] includes, String[] excludes, boolean useDefaultExcludes )
+    GlobSelector( String[] includes, String[] excludes, boolean useDefaultExcludes )
     {
         this.str = "includes = " + toString( includes ) + ", excludes = " + toString( excludes );
         this.includes = normalizePatterns( includes );

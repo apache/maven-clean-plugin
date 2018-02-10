@@ -50,7 +50,7 @@ class Cleaner
      * @param log The logger to use, may be <code>null</code> to disable logging.
      * @param verbose Whether to perform verbose logging.
      */
-    public Cleaner( final Log log, boolean verbose )
+    Cleaner( final Log log, boolean verbose )
     {
         logDebug = ( log == null || !log.isDebugEnabled() ) ? null : new Logger()
         {
