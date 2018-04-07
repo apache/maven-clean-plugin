@@ -55,7 +55,7 @@ public class CleanMojoTest
     /**
      * Tests the simple removal of directories
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testBasicClean()
         throws Exception
@@ -82,7 +82,7 @@ public class CleanMojoTest
     /**
      * Tests the removal of files and nested directories
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testCleanNestedStructure()
         throws Exception
@@ -107,7 +107,7 @@ public class CleanMojoTest
      * Tests that no exception is thrown when all internal variables are empty and that it doesn't
      * just remove whats there
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testCleanEmptyDirectories()
         throws Exception
@@ -135,7 +135,7 @@ public class CleanMojoTest
     /**
      * Tests the removal of files using fileset
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testFilesetsClean()
         throws Exception
@@ -171,7 +171,7 @@ public class CleanMojoTest
     /**
      * Tests the removal of a directory as file
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testCleanInvalidDirectory()
         throws Exception
@@ -200,7 +200,7 @@ public class CleanMojoTest
     /**
      * Tests the removal of a missing directory
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testMissingDirectory()
         throws Exception
@@ -221,10 +221,11 @@ public class CleanMojoTest
 
     /**
      * Test the removal of a locked file on Windows systems.
-     * <br/>
+     * <p>
      * Note: Unix systems doesn't lock any files.
+     * </p>
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testCleanLockedFile()
         throws Exception
@@ -276,10 +277,11 @@ public class CleanMojoTest
 
     /**
      * Test the removal of a locked file on Windows systems.
-     * <br/>
+     * <p>
      * Note: Unix systems doesn't lock any files.
+     * </p>
      *
-     * @throws Exception
+     * @throws Exception in case of an error.
      */
     public void testCleanLockedFileWithNoError()
         throws Exception

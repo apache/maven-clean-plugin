@@ -29,17 +29,15 @@ import java.io.IOException;
 
 /**
  * Goal which cleans the build.
- * <p/>
- * <P>
+ * <p>
  * This attempts to clean a project's working directory of the files that were generated at build-time. By default, it
  * discovers and deletes the directories configured in <code>project.build.directory</code>,
  * <code>project.build.outputDirectory</code>, <code>project.build.testOutputDirectory</code>, and
  * <code>project.reporting.outputDirectory</code>.
- * </P>
- * <p/>
- * <P>
+ * </p>
+ * <p>
  * Files outside the default may also be included in the deletion by configuring the <code>filesets</code> tag.
- * </P>
+ * </p>
  *
  * @author <a href="mailto:evenisse@maven.org">Emmanuel Venisse</a>
  * @version $Id$
