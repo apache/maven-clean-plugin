@@ -29,7 +29,6 @@ import java.util.Arrays;
  * <code>"file-set: <I>[directory]</I> (included: <I>[included files]</I>,
  * excluded: <I>[excluded files]</I>)"</code>
  *
- * @version $Id$
  * @since 2.1
  */
 public class Fileset

@@ -40,7 +40,6 @@ import java.io.IOException;
  * </p>
  *
  * @author <a href="mailto:evenisse@maven.org">Emmanuel Venisse</a>
- * @version $Id$
  * @see org.apache.maven.plugins.clean.Fileset
  * @since 2.0
  */
