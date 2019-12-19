@@ -14,7 +14,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-Contributing to Apache Maven Assembly Plugin
+Contributing to Apache Maven Clean Plugin
 ======================
 
 [![Apache License, Version 2.0, January 2004](https://img.shields.io/github/license/apache/maven.svg?label=License)][license]
@@ -81,7 +81,7 @@ Additional Resources
 --------------------
 
 + [Contributing patches](https://maven.apache.org/guides/development/guide-maven-development.html#Creating_and_submitting_a_patch)
-+ [Apache Maven Assembly JIRA project page](https://issues.apache.org/jira/projects/MCLEAN/)
++ [Apache Maven Clean JIRA project page](https://issues.apache.org/jira/projects/MCLEAN/)
 + [Contributor License Agreement][cla]
 + [General GitHub documentation](https://help.github.com/)
 + [GitHub pull request documentation](https://help.github.com/send-pull-requests/)

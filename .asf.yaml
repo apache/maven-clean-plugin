@@ -22,4 +22,5 @@ github:
     - java
     - build-management
     - maven-plugins
+    - maven-clean-plugin
     - maven
