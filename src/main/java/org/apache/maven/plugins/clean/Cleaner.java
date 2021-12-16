@@ -21,6 +21,11 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.shared.utils.Os;
@@ -44,13 +49,15 @@ class Cleaner
 
     private final Logger logWarn;
 
+    private final File fastFolder;
+
     /**
      * Creates a new cleaner.
      * 
      * @param log The logger to use, may be <code>null</code> to disable logging.
      * @param verbose Whether to perform verbose logging.
      */
-    Cleaner( final Log log, boolean verbose )
+    Cleaner( final Log log, boolean verbose, File fastFolder )
     {
         logDebug = ( log == null || !log.isDebugEnabled() ) ? null : new Logger()
         {
@@ -77,6 +84,8 @@ class Cleaner
         };
 
         logVerbose = verbose ? logInfo : logDebug;
+
+        this.fastFolder = fastFolder;
     }
 
     /**
@@ -115,7 +124,61 @@ class Cleaner
 
         File file = followSymlinks ? basedir : basedir.getCanonicalFile();
 
+        if ( selector == null && !followSymlinks && fastFolder != null )
+        {
+            if ( fastDelete( file ) )
+            {
+                return;
+            }
+        }
+
         delete( file, "", selector, followSymlinks, failOnError, retryOnError );
+    }
+
+    private boolean fastDelete( File baseDir )
+    {
+        fastFolder.mkdirs();
+        if ( fastFolder.isDirectory() )
+        {
+            try
+            {
+                File tmpDir = createTempDir( fastFolder );
+                File dstDir = new File( tmpDir, baseDir.getName() );
+                Files.move( baseDir.toPath(), dstDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
+                BackgroundCleaner.delete( fastFolder, tmpDir );
+                return true;
+            }
+            catch ( IOException e )
+            {
+                if ( logDebug != null )
+                {
+                    logDebug.log( "Unable to fast delete directory: " + e );
+                }
+            }
+        }
+        else
+        {
+            if ( logDebug != null )
+            {
+                logDebug.log( "Unable to fast delete directory as the path "
+                        + fastFolder + " does not point to a directory" );
+            }
+        }
+        return false;
+    }
+
+    private File createTempDir( File baseFolder ) throws IOException
+    {
+        for ( int i = 0; i < 10; i++ )
+        {
+            int rnd = ThreadLocalRandom.current().nextInt();
+            File tmpDir = new File( baseFolder, Integer.toHexString( rnd ) );
+            if ( tmpDir.mkdir() )
+            {
+                return tmpDir;
+            }
+        }
+        throw new IOException( "Can not create temp folder" );
     }
 
     /**
@@ -284,6 +347,95 @@ class Cleaner
 
         void log( CharSequence message );
 
+    }
+
+    static class BackgroundCleaner extends Thread
+    {
+
+        private static BackgroundCleaner instance;
+
+        private final Deque<File> filesToDelete = new ArrayDeque<>();
+
+        private final Cleaner cleaner = new Cleaner( null, false, null );
+
+        private int status = 0;
+
+        public static void delete( File fastFolder, File folder )
+        {
+            synchronized ( BackgroundCleaner.class )
+            {
+                if ( instance == null || !instance.doDelete( folder ) )
+                {
+                    instance = new BackgroundCleaner( fastFolder, folder );
+                }
+            }
+        }
+
+        private BackgroundCleaner( File fastFolder, File folder )
+        {
+            init( fastFolder, folder );
+        }
+
+        public void run()
+        {
+            while ( true )
+            {
+                File basedir = pollNext();
+                if ( basedir == null )
+                {
+                    break;
+                }
+                try
+                {
+                    cleaner.delete( basedir, "", null, false, false, true );
+                }
+                catch ( IOException e )
+                {
+                    // do not display errors
+                }
+            }
+        }
+
+        synchronized void init( File fastFolder, File folder )
+        {
+            if ( fastFolder.isDirectory() )
+            {
+                File[] children = fastFolder.listFiles();
+                if ( children != null && children.length > 0 )
+                {
+                    for ( File child : children )
+                    {
+                        doDelete( child );
+                    }
+                }
+            }
+            doDelete( folder );
+        }
+
+        synchronized File pollNext()
+        {
+            File basedir = filesToDelete.poll();
+            if ( basedir == null )
+            {
+                status = 2;
+            }
+            return basedir;
+        }
+
+        synchronized boolean doDelete( File folder )
+        {
+            if ( status == 2 )
+            {
+                return false;
+            }
+            filesToDelete.add( folder );
+            if ( status == 0 )
+            {
+                status = 1;
+                start();
+            }
+            return true;
+        }
     }
 
 }
