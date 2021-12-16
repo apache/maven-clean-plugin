@@ -167,7 +167,7 @@ public class CleanMojo
     @Parameter( property = "maven.clean.fast", defaultValue = "false" )
     private boolean fast;
 
-    @Parameter( property = "maven.clean.fastDir", defaultValue = "${maven.multiModuleProjectDirectory}/.mvn/clean" )
+    @Parameter( property = "maven.clean.fastDir", defaultValue = "${maven.multiModuleProjectDirectory}/target/.clean" )
     private File fastDir;
 
     @Inject

@@ -46,6 +46,8 @@ class Cleaner
 
     private static final boolean ON_WINDOWS = Os.isFamily( Os.FAMILY_WINDOWS );
 
+    private static final String LAST_DIRECTORY_TO_DELETE = Cleaner.class.getName() + ".lastDirectoryToDelete";
+
     private final MavenSession session;
 
     private final Logger logDebug;
@@ -146,7 +148,7 @@ class Cleaner
 
     private boolean fastDelete( File baseDir )
     {
-        // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/clean for example
+        // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/.clean for example
         if ( fastDir.getAbsolutePath().startsWith( baseDir.getAbsolutePath() ) )
         {
             try
@@ -155,6 +157,7 @@ class Cleaner
                 try
                 {
                     Files.move( baseDir.toPath(), tmpDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
+                    session.getRequest().getData().put( LAST_DIRECTORY_TO_DELETE, baseDir );
                     baseDir = tmpDir;
                 }
                 catch ( IOException e )
@@ -476,8 +479,17 @@ class Cleaner
             File basedir = filesToDelete.poll();
             if ( basedir == null )
             {
-                status = STOPPED;
-                notifyAll();
+                File lastFolder = ( File ) cleaner.session.getRequest().getData().get( LAST_DIRECTORY_TO_DELETE );
+                if ( lastFolder != null )
+                {
+                    cleaner.session.getRequest().getData().remove( LAST_DIRECTORY_TO_DELETE );
+                    return lastFolder;
+                }
+                else
+                {
+                    status = STOPPED;
+                    notifyAll();
+                }
             }
             return basedir;
         }
