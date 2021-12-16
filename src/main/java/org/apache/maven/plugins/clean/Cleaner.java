@@ -126,6 +126,7 @@ class Cleaner
 
         if ( selector == null && !followSymlinks && fastDir != null )
         {
+            // If anything wrong happens, we'll just use the usual deletion mechanism
             if ( fastDelete( file ) )
             {
                 return;
@@ -144,6 +145,10 @@ class Cleaner
             {
                 File tmpDir = createTempDir( fastDir );
                 File dstDir = new File( tmpDir, baseDir.getName() );
+                // Note that by specifying the ATOMIC_MOVE, we expect an exception to be thrown
+                // if the path leads to a directory on another mountpoint.  If this is the case
+                // or any other exception occurs, an exception will be thrown in which case
+                // the method will return false and the usual deletion will be performed.
                 Files.move( baseDir.toPath(), dstDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
                 BackgroundCleaner.delete( fastDir, tmpDir );
                 return true;
