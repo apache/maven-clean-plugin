@@ -164,8 +164,8 @@ public class CleanMojo
     @Parameter( property = "maven.clean.fast", defaultValue = "false" )
     private boolean fast;
 
-    @Parameter( property = "maven.clean.fastFolder", defaultValue = "${maven.multiModuleProjectDirectory}/.mvn/clean" )
-    private File fastFolder;
+    @Parameter( property = "maven.clean.fastDir", defaultValue = "${maven.multiModuleProjectDirectory}/.mvn/clean" )
+    private File fastDir;
 
     /**
      * Deletes file-sets in the following project build directory order: (source) directory, output directory, test
@@ -183,7 +183,7 @@ public class CleanMojo
             return;
         }
 
-        Cleaner cleaner = new Cleaner( getLog(), isVerbose(), fast ? fastFolder : null );
+        Cleaner cleaner = new Cleaner( getLog(), isVerbose(), fast ? fastDir : null );
 
         try
         {

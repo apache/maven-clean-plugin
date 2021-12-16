@@ -49,7 +49,7 @@ class Cleaner
 
     private final Logger logWarn;
 
-    private final File fastFolder;
+    private final File fastDir;
 
     /**
      * Creates a new cleaner.
@@ -57,7 +57,7 @@ class Cleaner
      * @param log The logger to use, may be <code>null</code> to disable logging.
      * @param verbose Whether to perform verbose logging.
      */
-    Cleaner( final Log log, boolean verbose, File fastFolder )
+    Cleaner( final Log log, boolean verbose, File fastDir )
     {
         logDebug = ( log == null || !log.isDebugEnabled() ) ? null : new Logger()
         {
@@ -85,7 +85,7 @@ class Cleaner
 
         logVerbose = verbose ? logInfo : logDebug;
 
-        this.fastFolder = fastFolder;
+        this.fastDir = fastDir;
     }
 
     /**
@@ -124,7 +124,7 @@ class Cleaner
 
         File file = followSymlinks ? basedir : basedir.getCanonicalFile();
 
-        if ( selector == null && !followSymlinks && fastFolder != null )
+        if ( selector == null && !followSymlinks && fastDir != null )
         {
             if ( fastDelete( file ) )
             {
@@ -137,15 +137,15 @@ class Cleaner
 
     private boolean fastDelete( File baseDir )
     {
-        fastFolder.mkdirs();
-        if ( fastFolder.isDirectory() )
+        fastDir.mkdirs();
+        if ( fastDir.isDirectory() )
         {
             try
             {
-                File tmpDir = createTempDir( fastFolder );
+                File tmpDir = createTempDir( fastDir );
                 File dstDir = new File( tmpDir, baseDir.getName() );
                 Files.move( baseDir.toPath(), dstDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
-                BackgroundCleaner.delete( fastFolder, tmpDir );
+                BackgroundCleaner.delete( fastDir, tmpDir );
                 return true;
             }
             catch ( IOException e )
@@ -161,24 +161,24 @@ class Cleaner
             if ( logDebug != null )
             {
                 logDebug.log( "Unable to fast delete directory as the path "
-                        + fastFolder + " does not point to a directory" );
+                        + fastDir + " does not point to a directory" );
             }
         }
         return false;
     }
 
-    private File createTempDir( File baseFolder ) throws IOException
+    private File createTempDir( File baseDir ) throws IOException
     {
         for ( int i = 0; i < 10; i++ )
         {
             int rnd = ThreadLocalRandom.current().nextInt();
-            File tmpDir = new File( baseFolder, Integer.toHexString( rnd ) );
+            File tmpDir = new File( baseDir, Integer.toHexString( rnd ) );
             if ( tmpDir.mkdir() )
             {
                 return tmpDir;
             }
         }
-        throw new IOException( "Can not create temp folder" );
+        throw new IOException( "Can not create temp directory" );
     }
 
     /**
@@ -360,20 +360,20 @@ class Cleaner
 
         private int status = 0;
 
-        public static void delete( File fastFolder, File folder )
+        public static void delete( File fastDir, File dir )
         {
             synchronized ( BackgroundCleaner.class )
             {
-                if ( instance == null || !instance.doDelete( folder ) )
+                if ( instance == null || !instance.doDelete( dir ) )
                 {
-                    instance = new BackgroundCleaner( fastFolder, folder );
+                    instance = new BackgroundCleaner( fastDir, dir );
                 }
             }
         }
 
-        private BackgroundCleaner( File fastFolder, File folder )
+        private BackgroundCleaner( File fastDir, File dir )
         {
-            init( fastFolder, folder );
+            init( fastDir, dir );
         }
 
         public void run()
@@ -396,11 +396,11 @@ class Cleaner
             }
         }
 
-        synchronized void init( File fastFolder, File folder )
+        synchronized void init( File fastDir, File dir )
         {
-            if ( fastFolder.isDirectory() )
+            if ( fastDir.isDirectory() )
             {
-                File[] children = fastFolder.listFiles();
+                File[] children = fastDir.listFiles();
                 if ( children != null && children.length > 0 )
                 {
                     for ( File child : children )
@@ -409,7 +409,7 @@ class Cleaner
                     }
                 }
             }
-            doDelete( folder );
+            doDelete( dir );
         }
 
         synchronized File pollNext()
@@ -422,13 +422,13 @@ class Cleaner
             return basedir;
         }
 
-        synchronized boolean doDelete( File folder )
+        synchronized boolean doDelete( File dir )
         {
             if ( status == 2 )
             {
                 return false;
             }
-            filesToDelete.add( folder );
+            filesToDelete.add( dir );
             if ( status == 0 )
             {
                 status = 1;
