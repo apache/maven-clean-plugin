@@ -21,11 +21,13 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.maven.eventspy.AbstractEventSpy;
@@ -157,7 +159,10 @@ class Cleaner
                 try
                 {
                     Files.move( baseDir.toPath(), tmpDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
-                    session.getRequest().getData().put( LAST_DIRECTORY_TO_DELETE, baseDir );
+                    if ( session != null )
+                    {
+                        session.getRequest().getData().put( LAST_DIRECTORY_TO_DELETE, baseDir );
+                    }
                     baseDir = tmpDir;
                 }
                 catch ( IOException e )
@@ -479,17 +484,17 @@ class Cleaner
             File basedir = filesToDelete.poll();
             if ( basedir == null )
             {
-                File lastFolder = ( File ) cleaner.session.getRequest().getData().get( LAST_DIRECTORY_TO_DELETE );
-                if ( lastFolder != null )
+                if ( cleaner.session != null )
                 {
-                    cleaner.session.getRequest().getData().remove( LAST_DIRECTORY_TO_DELETE );
-                    return lastFolder;
+                    Map<String, Object> data = cleaner.session.getRequest().getData();
+                    File lastFolder = ( File ) data.remove( LAST_DIRECTORY_TO_DELETE );
+                    if ( lastFolder != null )
+                    {
+                        return lastFolder;
+                    }
                 }
-                else
-                {
-                    status = STOPPED;
-                    notifyAll();
-                }
+                status = STOPPED;
+                notifyAll();
             }
             return basedir;
         }
@@ -505,7 +510,18 @@ class Cleaner
             {
                 status = RUNNING;
                 notifyAll();
-                List<EventSpy> spies = cleaner.session.getRequest().getEventSpyDispatcher().getEventSpies();
+                List<EventSpy> spies;
+                try
+                {
+                    // The EventSpyDispatcher class is not exported by maven-core, so work-around...
+                    Object eventSpyDispatcher = cleaner.session.getRequest().getEventSpyDispatcher();
+                    Method method = eventSpyDispatcher.getClass().getMethod( "getEventSpies" );
+                    spies = ( List<EventSpy> ) method.invoke( eventSpyDispatcher );
+                }
+                catch ( Exception e )
+                {
+                    return false;
+                }
                 boolean hasSessionListener = false;
                 for ( EventSpy spy : spies )
                 {

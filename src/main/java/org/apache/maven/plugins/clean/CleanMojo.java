@@ -22,13 +22,13 @@ package org.apache.maven.plugins.clean;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.eclipse.sisu.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-
-import javax.inject.Inject;
 
 /**
  * Goal which cleans the build.
@@ -170,7 +170,8 @@ public class CleanMojo
     @Parameter( property = "maven.clean.fastDir", defaultValue = "${maven.multiModuleProjectDirectory}/target/.clean" )
     private File fastDir;
 
-    @Inject
+    @Component
+    @Nullable
     private MavenSession session;
 
     /**
