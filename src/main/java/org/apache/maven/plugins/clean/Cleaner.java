@@ -138,12 +138,42 @@ class Cleaner
 
     private boolean fastDelete( File baseDir )
     {
-        fastDir.mkdirs();
-        if ( fastDir.isDirectory() )
+        // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/clean for example
+        if ( fastDir.getAbsolutePath().startsWith( baseDir.getAbsolutePath() ) )
         {
             try
             {
-                File tmpDir = createTempDir( fastDir );
+                File tmpDir = createTempDir( baseDir.getParentFile(), baseDir.getName() + "." );
+                try
+                {
+                    Files.move( baseDir.toPath(), tmpDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
+                    baseDir = tmpDir;
+                }
+                catch ( IOException e )
+                {
+                    tmpDir.delete();
+                    if ( logDebug != null )
+                    {
+                        logDebug.log( "Unable to fast delete directory: " + e );
+                    }
+                    return false;
+                }
+            }
+            catch ( IOException e )
+            {
+                if ( logDebug != null )
+                {
+                    logDebug.log( "Unable to fast delete directory: " + e );
+                }
+                return false;
+            }
+        }
+        // Create fastDir and the needed parents if needed
+        if ( fastDir.mkdirs() || fastDir.isDirectory() )
+        {
+            try
+            {
+                File tmpDir = createTempDir( fastDir, "" );
                 File dstDir = new File( tmpDir, baseDir.getName() );
                 // Note that by specifying the ATOMIC_MOVE, we expect an exception to be thrown
                 // if the path leads to a directory on another mountpoint.  If this is the case
@@ -166,18 +196,18 @@ class Cleaner
             if ( logDebug != null )
             {
                 logDebug.log( "Unable to fast delete directory as the path "
-                        + fastDir + " does not point to a directory" );
+                        + fastDir + " does not point to a directory or can not be created" );
             }
         }
         return false;
     }
 
-    private File createTempDir( File baseDir ) throws IOException
+    private File createTempDir( File baseDir, String prefix ) throws IOException
     {
         for ( int i = 0; i < 10; i++ )
         {
             int rnd = ThreadLocalRandom.current().nextInt();
-            File tmpDir = new File( baseDir, Integer.toHexString( rnd ) );
+            File tmpDir = new File( baseDir, prefix + Integer.toHexString( rnd ) );
             if ( tmpDir.mkdir() )
             {
                 return tmpDir;
