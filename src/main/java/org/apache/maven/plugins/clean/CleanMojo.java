@@ -19,6 +19,7 @@ package org.apache.maven.plugins.clean;
  * under the License.
  */
 
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -26,6 +27,8 @@ import org.apache.maven.plugins.annotations.Parameter;
 
 import java.io.File;
 import java.io.IOException;
+
+import javax.inject.Inject;
 
 /**
  * Goal which cleans the build.
@@ -167,6 +170,9 @@ public class CleanMojo
     @Parameter( property = "maven.clean.fastDir", defaultValue = "${maven.multiModuleProjectDirectory}/.mvn/clean" )
     private File fastDir;
 
+    @Inject
+    private MavenSession session;
+
     /**
      * Deletes file-sets in the following project build directory order: (source) directory, output directory, test
      * directory, report directory, and then the additional file-sets.
@@ -183,7 +189,7 @@ public class CleanMojo
             return;
         }
 
-        Cleaner cleaner = new Cleaner( getLog(), isVerbose(), fast ? fastDir : null );
+        Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fast ? fastDir : null );
 
         try
         {

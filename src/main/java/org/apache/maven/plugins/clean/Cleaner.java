@@ -25,8 +25,13 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.apache.maven.eventspy.AbstractEventSpy;
+import org.apache.maven.eventspy.EventSpy;
+import org.apache.maven.execution.ExecutionEvent;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.shared.utils.Os;
 import org.apache.maven.shared.utils.io.FileUtils;
@@ -40,6 +45,8 @@ class Cleaner
 {
 
     private static final boolean ON_WINDOWS = Os.isFamily( Os.FAMILY_WINDOWS );
+
+    private final MavenSession session;
 
     private final Logger logDebug;
 
@@ -57,8 +64,9 @@ class Cleaner
      * @param log The logger to use, may be <code>null</code> to disable logging.
      * @param verbose Whether to perform verbose logging.
      */
-    Cleaner( final Log log, boolean verbose, File fastDir )
+    Cleaner( MavenSession session, final Log log, boolean verbose, File fastDir )
     {
+        this.session = session;
         logDebug = ( log == null || !log.isDebugEnabled() ) ? null : new Logger()
         {
             public void log( CharSequence message )
@@ -180,7 +188,7 @@ class Cleaner
                 // or any other exception occurs, an exception will be thrown in which case
                 // the method will return false and the usual deletion will be performed.
                 Files.move( baseDir.toPath(), dstDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
-                BackgroundCleaner.delete( fastDir, tmpDir );
+                BackgroundCleaner.delete( this, tmpDir );
                 return true;
             }
             catch ( IOException e )
@@ -391,7 +399,7 @@ class Cleaner
 
         private final Deque<File> filesToDelete = new ArrayDeque<>();
 
-        private final Cleaner cleaner = new Cleaner( null, false, null );
+        private final Cleaner cleaner;
 
         private static final int NEW = 0;
         private static final int RUNNING = 1;
@@ -399,20 +407,32 @@ class Cleaner
 
         private int status = NEW;
 
-        public static void delete( File fastDir, File dir )
+        public static void delete( Cleaner cleaner, File dir )
         {
             synchronized ( BackgroundCleaner.class )
             {
                 if ( instance == null || !instance.doDelete( dir ) )
                 {
-                    instance = new BackgroundCleaner( fastDir, dir );
+                    instance = new BackgroundCleaner( cleaner, dir );
                 }
             }
         }
 
-        private BackgroundCleaner( File fastDir, File dir )
+        static void sessionEnd()
         {
-            init( fastDir, dir );
+            synchronized ( BackgroundCleaner.class )
+            {
+                if ( instance != null )
+                {
+                    instance.doSessionEnd();
+                }
+            }
+        }
+
+        private BackgroundCleaner( Cleaner cleaner, File dir )
+        {
+            this.cleaner = cleaner;
+            init( cleaner.fastDir, dir );
         }
 
         public void run()
@@ -457,6 +477,7 @@ class Cleaner
             if ( basedir == null )
             {
                 status = STOPPED;
+                notifyAll();
             }
             return basedir;
         }
@@ -471,9 +492,61 @@ class Cleaner
             if ( status == NEW )
             {
                 status = RUNNING;
+                notifyAll();
+                List<EventSpy> spies = cleaner.session.getRequest().getEventSpyDispatcher().getEventSpies();
+                boolean hasSessionListener = false;
+                for ( EventSpy spy : spies )
+                {
+                    if ( spy instanceof SessionListener )
+                    {
+                        hasSessionListener = true;
+                        break;
+                    }
+                }
+                if ( !hasSessionListener )
+                {
+                    spies.add( new SessionListener() );
+                }
                 start();
             }
             return true;
+        }
+
+        synchronized void doSessionEnd()
+        {
+            if ( status != STOPPED )
+            {
+                try
+                {
+                    cleaner.logInfo.log( "Waiting for background file deletion" );
+                    while ( status != STOPPED )
+                    {
+                        wait();
+                    }
+                }
+                catch ( InterruptedException e )
+                {
+                    // ignore
+                }
+            }
+        }
+
+    }
+
+    static class SessionListener extends AbstractEventSpy
+    {
+        @Override
+        public void onEvent( Object event )
+        {
+            if ( event instanceof ExecutionEvent )
+            {
+                ExecutionEvent ee = ( ExecutionEvent ) event;
+                if ( ee.getType() == ExecutionEvent.Type.SessionEnded )
+                {
+
+                    BackgroundCleaner.sessionEnd();
+                }
+            }
         }
     }
 
