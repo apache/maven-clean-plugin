@@ -358,7 +358,11 @@ class Cleaner
 
         private final Cleaner cleaner = new Cleaner( null, false, null );
 
-        private int status = 0;
+        private static final int NEW = 0;
+        private static final int RUNNING = 1;
+        private static final int STOPPED = 2;
+
+        private int status = NEW;
 
         public static void delete( File fastDir, File dir )
         {
@@ -417,21 +421,21 @@ class Cleaner
             File basedir = filesToDelete.poll();
             if ( basedir == null )
             {
-                status = 2;
+                status = STOPPED;
             }
             return basedir;
         }
 
         synchronized boolean doDelete( File dir )
         {
-            if ( status == 2 )
+            if ( status == STOPPED )
             {
                 return false;
             }
             filesToDelete.add( dir );
-            if ( status == 0 )
+            if ( status == NEW )
             {
-                status = 1;
+                status = RUNNING;
                 start();
             }
             return true;
