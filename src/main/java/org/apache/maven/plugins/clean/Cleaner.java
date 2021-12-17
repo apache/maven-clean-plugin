@@ -135,7 +135,7 @@ class Cleaner
 
         File file = followSymlinks ? basedir : basedir.getCanonicalFile();
 
-        if ( selector == null && !followSymlinks && fastDir != null )
+        if ( selector == null && !followSymlinks && fastDir != null && session != null )
         {
             // If anything wrong happens, we'll just use the usual deletion mechanism
             if ( fastDelete( file ) )
@@ -519,7 +519,8 @@ class Cleaner
         private void wrapExecutionListener()
         {
             ExecutionListener executionListener = cleaner.session.getRequest().getExecutionListener();
-            if ( !Proxy.isProxyClass( executionListener.getClass() )
+            if ( executionListener == null
+                    || !Proxy.isProxyClass( executionListener.getClass() )
                     || !( Proxy.getInvocationHandler( executionListener ) instanceof SpyInvocationHandler ) )
             {
                 ExecutionListener listener = ( ExecutionListener ) Proxy.newProxyInstance(
@@ -567,7 +568,11 @@ class Cleaner
             {
                 BackgroundCleaner.sessionEnd();
             }
-            return method.invoke( delegate, args );
+            if ( delegate != null )
+            {
+                return method.invoke(delegate, args);
+            }
+            return null;
         }
 
     }
