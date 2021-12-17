@@ -509,30 +509,31 @@ class Cleaner
             {
                 status = RUNNING;
                 notifyAll();
-                try
-                {
-                    // The EventSpyDispatcher class is not exported by maven-core, so work-around...
-                    ExecutionListener executionListener = cleaner.session.getRequest().getExecutionListener();
-                    if ( !Proxy.isProxyClass( executionListener.getClass() )
-                            || !( Proxy.getInvocationHandler( executionListener ) instanceof  SpyInvocationHandler ) )
-                    {
-                        ExecutionListener listener = ( ExecutionListener ) Proxy.newProxyInstance(
-                                ExecutionListener.class.getClassLoader(),
-                                new Class[] { ExecutionListener.class },
-                                new SpyInvocationHandler( executionListener ) );
-                        cleaner.session.getRequest().setExecutionListener( listener );
-                    }
-                }
-                catch ( Exception e )
-                {
-                    cleaner.logWarn.log(
-                            "Unable to access maven core event spies. "
-                                    + "All files may not be deleted when maven stops. "
-                                    + "Please report this issue. " + e );
-                }
+                wrapExecutionListener();
                 start();
             }
             return true;
+        }
+
+        /**
+         * If this has not been done already, we wrap the ExecutionListener inside a proxy
+         * which simply delegates call to the previous listener.  When the session ends, it will
+         * also call {@link BackgroundCleaner#sessionEnd()}.
+         * There's no clean API to do that properly as this is a very unusual use case for a plugin
+         * to outlive its main execution.
+         */
+        private void wrapExecutionListener()
+        {
+            ExecutionListener executionListener = cleaner.session.getRequest().getExecutionListener();
+            if ( !Proxy.isProxyClass( executionListener.getClass() )
+                    || !( Proxy.getInvocationHandler( executionListener ) instanceof SpyInvocationHandler ) )
+            {
+                ExecutionListener listener = ( ExecutionListener ) Proxy.newProxyInstance(
+                        ExecutionListener.class.getClassLoader(),
+                        new Class[] { ExecutionListener.class },
+                        new SpyInvocationHandler( executionListener ) );
+                cleaner.session.getRequest().setExecutionListener( listener );
+            }
         }
 
         synchronized void doSessionEnd()
