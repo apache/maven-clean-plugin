@@ -570,7 +570,7 @@ class Cleaner
             }
             if ( delegate != null )
             {
-                return method.invoke(delegate, args);
+                return method.invoke( delegate, args );
             }
             return null;
         }
