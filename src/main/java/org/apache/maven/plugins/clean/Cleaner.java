@@ -29,13 +29,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Map;
 
 import org.apache.maven.execution.ExecutionListener;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.shared.utils.Os;
 import org.apache.maven.shared.utils.io.FileUtils;
+import org.eclipse.aether.SessionData;
 
 /**
  * Cleans directories.
@@ -163,7 +163,7 @@ class Cleaner
                     Files.move( baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING );
                     if ( session != null )
                     {
-                        session.getRequest().getData().put( LAST_DIRECTORY_TO_DELETE, baseDir.toFile() );
+                        session.getRepositorySession().getData().set( LAST_DIRECTORY_TO_DELETE, baseDir.toFile() );
                     }
                     baseDir = tmpDir;
                 }
@@ -479,10 +479,11 @@ class Cleaner
             {
                 if ( cleaner.session != null )
                 {
-                    Map<String, Object> data = cleaner.session.getRequest().getData();
-                    File lastDir = ( File ) data.remove( LAST_DIRECTORY_TO_DELETE );
+                    SessionData data = cleaner.session.getRepositorySession().getData();
+                    File lastDir = ( File ) data.get( LAST_DIRECTORY_TO_DELETE );
                     if ( lastDir != null )
                     {
+                        data.set( LAST_DIRECTORY_TO_DELETE, null );
                         return lastDir;
                     }
                 }

@@ -167,7 +167,10 @@ public class CleanMojo
     @Parameter( property = "maven.clean.fast", defaultValue = "false" )
     private boolean fast;
 
-    @Parameter( property = "maven.clean.fastDir", defaultValue = "${maven.multiModuleProjectDirectory}/target/.clean" )
+    @Parameter( defaultValue = "${maven.multiModuleProjectDirectory}" )
+    private String multiModuleProjectDirectory;
+
+    @Parameter( property = "maven.clean.fastDir" )
     private File fastDir;
 
     @Component
@@ -190,7 +193,25 @@ public class CleanMojo
             return;
         }
 
-        Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fast ? fastDir : null );
+        File fastDir;
+        if ( fast && this.fastDir != null )
+        {
+            fastDir = this.fastDir;
+        }
+        else if ( fast && multiModuleProjectDirectory != null )
+        {
+            fastDir = new File( multiModuleProjectDirectory, "target/.clean" );
+        }
+        else
+        {
+            fastDir = null;
+            if ( fast )
+            {
+                getLog().warn( "Fast deletion requires maven 3.3.1" );
+            }
+        }
+
+        Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fastDir );
 
         try
         {
