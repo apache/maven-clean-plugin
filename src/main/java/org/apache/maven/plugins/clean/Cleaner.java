@@ -25,11 +25,11 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.maven.execution.ExecutionListener;
 import org.apache.maven.execution.MavenSession;
@@ -147,17 +147,20 @@ class Cleaner
         delete( file, "", selector, followSymlinks, failOnError, retryOnError );
     }
 
-    private boolean fastDelete( File baseDir )
+    private boolean fastDelete( File baseDirFile )
     {
+        Path baseDir = baseDirFile.toPath();
+        Path fastDir = this.fastDir.toPath();
         // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/.clean for example
-        if ( fastDir.getAbsolutePath().startsWith( baseDir.getAbsolutePath() ) )
+        if ( fastDir.toAbsolutePath().startsWith( baseDir.toAbsolutePath() ) )
         {
             try
             {
-                File tmpDir = createTempDir( baseDir.getParentFile(), baseDir.getName() + "." );
+                String prefix = baseDir.getFileName().toString() + ".";
+                Path tmpDir = Files.createTempDirectory( baseDir.getParent(), prefix );
                 try
                 {
-                    Files.move( baseDir.toPath(), tmpDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
+                    Files.move( baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING );
                     if ( session != null )
                     {
                         session.getRequest().getData().put( LAST_DIRECTORY_TO_DELETE, baseDir );
@@ -166,69 +169,60 @@ class Cleaner
                 }
                 catch ( IOException e )
                 {
-                    tmpDir.delete();
-                    if ( logDebug != null )
-                    {
-                        logDebug.log( "Unable to fast delete directory: " + e );
-                    }
-                    return false;
+                    Files.delete( tmpDir );
+                    throw e;
                 }
             }
             catch ( IOException e )
             {
                 if ( logDebug != null )
                 {
+                    // TODO: this Logger interface cannot log exceptions and needs refactoring
                     logDebug.log( "Unable to fast delete directory: " + e );
                 }
                 return false;
             }
         }
         // Create fastDir and the needed parents if needed
-        if ( fastDir.mkdirs() || fastDir.isDirectory() )
+        try
         {
-            try
+            if ( !Files.isDirectory( fastDir ) )
             {
-                File tmpDir = createTempDir( fastDir, "" );
-                File dstDir = new File( tmpDir, baseDir.getName() );
-                // Note that by specifying the ATOMIC_MOVE, we expect an exception to be thrown
-                // if the path leads to a directory on another mountpoint.  If this is the case
-                // or any other exception occurs, an exception will be thrown in which case
-                // the method will return false and the usual deletion will be performed.
-                Files.move( baseDir.toPath(), dstDir.toPath(), StandardCopyOption.ATOMIC_MOVE );
-                BackgroundCleaner.delete( this, tmpDir );
-                return true;
-            }
-            catch ( IOException e )
-            {
-                if ( logDebug != null )
-                {
-                    logDebug.log( "Unable to fast delete directory: " + e );
-                }
+                Files.createDirectories( fastDir );
             }
         }
-        else
+        catch ( IOException e )
         {
             if ( logDebug != null )
             {
+                // TODO: this Logger interface cannot log exceptions and needs refactoring
                 logDebug.log( "Unable to fast delete directory as the path "
-                        + fastDir + " does not point to a directory or can not be created" );
+                        + fastDir + " does not point to a directory or cannot be created: " + e );
             }
+            return false;
         }
-        return false;
-    }
 
-    private File createTempDir( File baseDir, String prefix ) throws IOException
-    {
-        for ( int i = 0; i < 10; i++ )
+        try
         {
-            int rnd = ThreadLocalRandom.current().nextInt();
-            File tmpDir = new File( baseDir, prefix + Integer.toHexString( rnd ) );
-            if ( tmpDir.mkdir() )
-            {
-                return tmpDir;
-            }
+            Path tmpDir = Files.createTempDirectory( fastDir, "" );
+            Path dstDir = tmpDir.resolve( baseDir.getFileName() );
+            // Note that by specifying the ATOMIC_MOVE, we expect an exception to be thrown
+            // if the path leads to a directory on another mountpoint.  If this is the case
+            // or any other exception occurs, an exception will be thrown in which case
+            // the method will return false and the usual deletion will be performed.
+            Files.move( baseDir, dstDir, StandardCopyOption.ATOMIC_MOVE );
+            BackgroundCleaner.delete( this, tmpDir.toFile() );
+            return true;
         }
-        throw new IOException( "Can not create temp directory" );
+        catch ( IOException e )
+        {
+            if ( logDebug != null )
+            {
+                // TODO: this Logger interface cannot log exceptions and needs refactoring
+                logDebug.log( "Unable to fast delete directory: " + e );
+            }
+            return false;
+        }
     }
 
     /**
