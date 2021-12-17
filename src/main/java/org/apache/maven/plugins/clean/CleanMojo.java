@@ -166,7 +166,8 @@ public class CleanMojo
      * Enables fast clean if possible. If set to <code>true</code>, when the plugin is executed, a directory to
      * be deleted will be atomically moved inside the <code>maven.clean.fastDir</code> directory and a thread will
      * be launched to delete the needed files in the background.  When the build is completed, maven will wait
-     * until all the files have been deleted.
+     * until all the files have been deleted.  If any problem occurs during the atomic move of the directories,
+     * the plugin will default to the traditional deletion mechanism.
      *
      * @since 3.2
      */
@@ -178,6 +179,9 @@ public class CleanMojo
      * to be deleted will be moved prior to background deletion.  If not specified, the
      * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
      * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
+     * In order for fast clean to work correctly, this directory must reside on the same mountpoint that the
+     * various directories that will be deleted.  This is usually the case when the whole code tree is setup to
+     * reside on a standard drive.
      *
      * @since 3.2
      */
