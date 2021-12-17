@@ -486,10 +486,10 @@ class Cleaner
                 if ( cleaner.session != null )
                 {
                     Map<String, Object> data = cleaner.session.getRequest().getData();
-                    File lastFolder = ( File ) data.remove( LAST_DIRECTORY_TO_DELETE );
-                    if ( lastFolder != null )
+                    File lastDir = ( File ) data.remove( LAST_DIRECTORY_TO_DELETE );
+                    if ( lastDir != null )
                     {
-                        return lastFolder;
+                        return lastDir;
                     }
                 }
                 status = STOPPED;
