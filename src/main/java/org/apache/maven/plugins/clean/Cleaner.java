@@ -21,18 +21,17 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.apache.maven.eventspy.AbstractEventSpy;
-import org.apache.maven.eventspy.EventSpy;
-import org.apache.maven.execution.ExecutionEvent;
+import org.apache.maven.execution.ExecutionListener;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.shared.utils.Os;
@@ -510,31 +509,26 @@ class Cleaner
             {
                 status = RUNNING;
                 notifyAll();
-                List<EventSpy> spies;
                 try
                 {
                     // The EventSpyDispatcher class is not exported by maven-core, so work-around...
-                    Object eventSpyDispatcher = cleaner.session.getRequest().getEventSpyDispatcher();
-                    Field field = eventSpyDispatcher.getClass().getField( "eventSpies" );
-                    field.setAccessible( true );
-                    spies = ( List<EventSpy> ) field.get( eventSpyDispatcher );
+                    ExecutionListener executionListener = cleaner.session.getRequest().getExecutionListener();
+                    if ( !Proxy.isProxyClass( executionListener.getClass() )
+                            || !( Proxy.getInvocationHandler( executionListener ) instanceof  SpyInvocationHandler ) )
+                    {
+                        ExecutionListener listener = ( ExecutionListener ) Proxy.newProxyInstance(
+                                ExecutionListener.class.getClassLoader(),
+                                new Class[] { ExecutionListener.class },
+                                new SpyInvocationHandler( executionListener ) );
+                        cleaner.session.getRequest().setExecutionListener( listener );
+                    }
                 }
                 catch ( Exception e )
                 {
-                    return false;
-                }
-                boolean hasSessionListener = false;
-                for ( EventSpy spy : spies )
-                {
-                    if ( spy instanceof SessionListener )
-                    {
-                        hasSessionListener = true;
-                        break;
-                    }
-                }
-                if ( !hasSessionListener )
-                {
-                    spies.add( new SessionListener() );
+                    cleaner.logWarn.log(
+                            "Unable to access maven core event spies. "
+                                    + "All files may not be deleted when maven stops. "
+                                    + "Please report this issue. " + e );
                 }
                 start();
             }
@@ -562,21 +556,25 @@ class Cleaner
 
     }
 
-    static class SessionListener extends AbstractEventSpy
+    static class SpyInvocationHandler implements InvocationHandler
     {
-        @Override
-        public void onEvent( Object event )
-        {
-            if ( event instanceof ExecutionEvent )
-            {
-                ExecutionEvent ee = ( ExecutionEvent ) event;
-                if ( ee.getType() == ExecutionEvent.Type.SessionEnded )
-                {
+        private final ExecutionListener delegate;
 
-                    BackgroundCleaner.sessionEnd();
-                }
-            }
+        SpyInvocationHandler( ExecutionListener delegate )
+        {
+            this.delegate = delegate;
         }
+
+        @Override
+        public Object invoke( Object proxy, Method method, Object[] args ) throws Throwable
+        {
+            if ( "sessionEnded".equals( method.getName() ) )
+            {
+                BackgroundCleaner.sessionEnd();
+            }
+            return method.invoke( delegate, args );
+        }
+
     }
 
 }
