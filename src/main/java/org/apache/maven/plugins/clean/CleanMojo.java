@@ -22,10 +22,8 @@ package org.apache.maven.plugins.clean;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.eclipse.sisu.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -164,17 +162,29 @@ public class CleanMojo
     @Parameter( property = "maven.clean.excludeDefaultDirectories", defaultValue = "false" )
     private boolean excludeDefaultDirectories;
 
+    /**
+     * Enables fast clean if possible. If set to <code>true</code>, when the plugin is executed, a directory to
+     * be deleted will be atomically moved inside the <code>maven.clean.fastDir</code> directory and a thread will
+     * be launched to delete the needed files in the background.  When the build is completed, maven will wait
+     * until all the files have been deleted.
+     *
+     * @since 3.2
+     */
     @Parameter( property = "maven.clean.fast", defaultValue = "false" )
     private boolean fast;
 
-    @Parameter( defaultValue = "${maven.multiModuleProjectDirectory}" )
-    private String multiModuleProjectDirectory;
-
+    /**
+     * When fast clean is specified, the <code>fastDir</code> property will be used as the location where directories
+     * to be deleted will be moved prior to background deletion.  If not specified, the
+     * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
+     * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
+     *
+     * @since 3.2
+     */
     @Parameter( property = "maven.clean.fastDir" )
     private File fastDir;
 
-    @Component
-    @Nullable
+    @Parameter( defaultValue = "${session}", readonly = true )
     private MavenSession session;
 
     /**
@@ -193,6 +203,8 @@ public class CleanMojo
             return;
         }
 
+        String multiModuleProjectDirectory = session != null
+                ? session.getSystemProperties().getProperty( "maven.multiModuleProjectDirectory" ) : null;
         File fastDir;
         if ( fast && this.fastDir != null )
         {
@@ -207,7 +219,9 @@ public class CleanMojo
             fastDir = null;
             if ( fast )
             {
-                getLog().warn( "Fast deletion requires maven 3.3.1" );
+                getLog().warn( "Fast clean requires maven 3.3.1 or newer, "
+                        + "or an explicit directory to be specified with the 'fastDir' configuration of "
+                        + "this plugin, or the 'maven.clean.fastDir' system property to be set." );
             }
         }
 
