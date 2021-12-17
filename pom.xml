@@ -130,7 +130,7 @@ under the License.
         <!-- remove with next parent upgrade -->
         <plugin>
           <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.1.1</version>
+          <version>3.1.2</version>
         </plugin>
         <plugin>
           <artifactId>maven-enforcer-plugin</artifactId>
