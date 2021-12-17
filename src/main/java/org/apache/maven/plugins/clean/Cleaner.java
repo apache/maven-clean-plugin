@@ -21,7 +21,7 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
@@ -515,8 +515,9 @@ class Cleaner
                 {
                     // The EventSpyDispatcher class is not exported by maven-core, so work-around...
                     Object eventSpyDispatcher = cleaner.session.getRequest().getEventSpyDispatcher();
-                    Method method = eventSpyDispatcher.getClass().getMethod( "getEventSpies" );
-                    spies = ( List<EventSpy> ) method.invoke( eventSpyDispatcher );
+                    Field field = eventSpyDispatcher.getClass().getField( "eventSpies" );
+                    field.setAccessible( true );
+                    spies = ( List<EventSpy> ) field.get( eventSpyDispatcher );
                 }
                 catch ( Exception e )
                 {
