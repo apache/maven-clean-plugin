@@ -163,7 +163,7 @@ class Cleaner
                     Files.move( baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING );
                     if ( session != null )
                     {
-                        session.getRequest().getData().put( LAST_DIRECTORY_TO_DELETE, baseDir );
+                        session.getRequest().getData().put( LAST_DIRECTORY_TO_DELETE, baseDir.toFile() );
                     }
                     baseDir = tmpDir;
                 }
