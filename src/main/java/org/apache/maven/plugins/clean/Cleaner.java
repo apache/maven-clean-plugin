@@ -49,6 +49,9 @@ class Cleaner
 
     private static final String LAST_DIRECTORY_TO_DELETE = Cleaner.class.getName() + ".lastDirectoryToDelete";
 
+    /**
+     * The maven session.  This is typically non-null in a real run, but it can be during unit tests.
+     */
     private final MavenSession session;
 
     private final Logger logDebug;
