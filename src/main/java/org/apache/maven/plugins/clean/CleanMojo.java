@@ -179,11 +179,12 @@ public class CleanMojo
      * to be deleted will be moved prior to background deletion.  If not specified, the
      * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
      * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
-     * In order for fast clean to work correctly, this directory must reside on the same mountpoint that the
-     * various directories that will be deleted.  This is usually the case when the whole code tree is setup to
-     * reside on a standard drive.
+     * In order for fast clean to work correctly, this directory and the various directories that will be deleted
+     * should usually reside on the same volume. The exact conditions are system dependant though, but if an atomic
+     * move is not supported, the standard deletion mechanism will be used.
      *
      * @since 3.2
+     * @see #fast
      */
     @Parameter( property = "maven.clean.fastDir" )
     private File fastDir;
@@ -225,7 +226,7 @@ public class CleanMojo
             {
                 getLog().warn( "Fast clean requires maven 3.3.1 or newer, "
                         + "or an explicit directory to be specified with the 'fastDir' configuration of "
-                        + "this plugin, or the 'maven.clean.fastDir' system property to be set." );
+                        + "this plugin, or the 'maven.clean.fastDir' user property to be set." );
             }
         }
 

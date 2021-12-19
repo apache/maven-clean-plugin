@@ -432,6 +432,7 @@ class Cleaner
 
         private BackgroundCleaner( Cleaner cleaner, File dir )
         {
+            super( "mvn-background-cleaner" );
             this.cleaner = cleaner;
             init( cleaner.fastDir, dir );
         }
