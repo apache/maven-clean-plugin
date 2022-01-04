@@ -252,9 +252,8 @@ public class CleanMojo
                   && !FAST_MODE_AT_END.equals( fastMode )
                   && !FAST_MODE_DEFER.equals( fastMode ) )
         {
-            getLog().warn( "Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
-                    + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'. "
-                    + "Reverting to use the default value '" + FAST_MODE_BACKGROUND + "'." );
+            throw new IllegalArgumentException( "Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
+                    + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'." );
         }
 
         Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fastDir, fastMode );
