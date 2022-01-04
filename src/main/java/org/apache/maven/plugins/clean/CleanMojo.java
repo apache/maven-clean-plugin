@@ -49,6 +49,12 @@ public class CleanMojo
     extends AbstractMojo
 {
 
+    public static final String FAST_MODE_BACKGROUND = "background";
+
+    public static final String FAST_MODE_AT_END = "at-end";
+
+    public static final String FAST_MODE_DEFER = "defer";
+
     /**
      * This is where build results go.
      */
@@ -189,6 +195,19 @@ public class CleanMojo
     @Parameter( property = "maven.clean.fastDir" )
     private File fastDir;
 
+    /**
+     * Mode to use when using fast clean.  Values are: <code>background</code> to start deletion immediately and
+     * waiting for all files to be deleted when the session ends, <code>at-end</code> to indicate that the actual
+     * deletion should be performed synchronously when the session ends, or <code>defer</code> to specify that
+     * the actual file deletion should be started in the background when the session ends (this should only be used
+     * when maven is embedded in a long running process).
+     *
+     * @since 3.2
+     * @see #fast
+     */
+    @Parameter( property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND )
+    private String fastMode;
+
     @Parameter( defaultValue = "${session}", readonly = true )
     private MavenSession session;
 
@@ -229,8 +248,16 @@ public class CleanMojo
                         + "this plugin, or the 'maven.clean.fastDir' user property to be set." );
             }
         }
+        if ( fast && !FAST_MODE_BACKGROUND.equals( fastMode )
+                  && !FAST_MODE_AT_END.equals( fastMode )
+                  && !FAST_MODE_DEFER.equals( fastMode ) )
+        {
+            getLog().warn( "Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
+                    + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'. "
+                    + "Reverting to use the default value '" + FAST_MODE_BACKGROUND + "'." );
+        }
 
-        Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fastDir );
+        Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fastDir, fastMode );
 
         try
         {

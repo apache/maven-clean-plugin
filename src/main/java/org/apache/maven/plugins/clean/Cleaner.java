@@ -37,6 +37,9 @@ import org.apache.maven.shared.utils.Os;
 import org.apache.maven.shared.utils.io.FileUtils;
 import org.eclipse.aether.SessionData;
 
+import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_BACKGROUND;
+import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_DEFER;
+
 /**
  * Cleans directories.
  * 
@@ -64,13 +67,15 @@ class Cleaner
 
     private final File fastDir;
 
+    private final String fastMode;
+
     /**
      * Creates a new cleaner.
-     * 
      * @param log The logger to use, may be <code>null</code> to disable logging.
      * @param verbose Whether to perform verbose logging.
+     * @param fastMode The fast deletion mode
      */
-    Cleaner( MavenSession session, final Log log, boolean verbose, File fastDir )
+    Cleaner( MavenSession session, final Log log, boolean verbose, File fastDir, String fastMode )
     {
         this.session = session;
         logDebug = ( log == null || !log.isDebugEnabled() ) ? null : new Logger()
@@ -100,6 +105,7 @@ class Cleaner
         logVerbose = verbose ? logInfo : logDebug;
 
         this.fastDir = fastDir;
+        this.fastMode = fastMode;
     }
 
     /**
@@ -214,7 +220,7 @@ class Cleaner
             // or any other exception occurs, an exception will be thrown in which case
             // the method will return false and the usual deletion will be performed.
             Files.move( baseDir, dstDir, StandardCopyOption.ATOMIC_MOVE );
-            BackgroundCleaner.delete( this, tmpDir.toFile() );
+            BackgroundCleaner.delete( this, tmpDir.toFile(), fastMode );
             return true;
         }
         catch ( IOException e )
@@ -396,7 +402,7 @@ class Cleaner
 
     }
 
-    static class BackgroundCleaner extends Thread
+    private static class BackgroundCleaner extends Thread
     {
 
         private static BackgroundCleaner instance;
@@ -405,19 +411,21 @@ class Cleaner
 
         private final Cleaner cleaner;
 
+        private final String fastMode;
+
         private static final int NEW = 0;
         private static final int RUNNING = 1;
         private static final int STOPPED = 2;
 
         private int status = NEW;
 
-        public static void delete( Cleaner cleaner, File dir )
+        public static void delete( Cleaner cleaner, File dir, String fastMode )
         {
             synchronized ( BackgroundCleaner.class )
             {
                 if ( instance == null || !instance.doDelete( dir ) )
                 {
-                    instance = new BackgroundCleaner( cleaner, dir );
+                    instance = new BackgroundCleaner( cleaner, dir, fastMode );
                 }
             }
         }
@@ -433,10 +441,11 @@ class Cleaner
             }
         }
 
-        private BackgroundCleaner( Cleaner cleaner, File dir )
+        private BackgroundCleaner( Cleaner cleaner, File dir, String fastMode )
         {
             super( "mvn-background-cleaner" );
             this.cleaner = cleaner;
+            this.fastMode = fastMode;
             init( cleaner.fastDir, dir );
         }
 
@@ -504,13 +513,13 @@ class Cleaner
                 return false;
             }
             filesToDelete.add( dir );
-            if ( status == NEW )
+            if ( status == NEW && FAST_MODE_BACKGROUND.equals( fastMode ) )
             {
                 status = RUNNING;
                 notifyAll();
-                wrapExecutionListener();
                 start();
             }
+            wrapExecutionListener();
             return true;
         }
 
@@ -540,17 +549,24 @@ class Cleaner
         {
             if ( status != STOPPED )
             {
-                try
+                if ( status == NEW )
                 {
-                    cleaner.logInfo.log( "Waiting for background file deletion" );
-                    while ( status != STOPPED )
-                    {
-                        wait();
-                    }
+                    start();
                 }
-                catch ( InterruptedException e )
+                if ( !FAST_MODE_DEFER.equals( fastMode ) )
                 {
-                    // ignore
+                    try
+                    {
+                        cleaner.logInfo.log( "Waiting for background file deletion" );
+                        while ( status != STOPPED )
+                        {
+                            wait();
+                        }
+                    }
+                    catch ( InterruptedException e )
+                    {
+                        // ignore
+                    }
                 }
             }
         }
