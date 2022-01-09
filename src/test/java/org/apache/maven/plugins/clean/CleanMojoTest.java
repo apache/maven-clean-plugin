@@ -21,12 +21,13 @@ package org.apache.maven.plugins.clean;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
-import org.apache.maven.shared.utils.io.FileUtils;
 
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+
+import static org.apache.commons.io.FileUtils.copyDirectory;
 
 /**
  * Test the clean mojo.
@@ -47,7 +48,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/basic-clean-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/basic-clean-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/basic-clean-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/basic-clean-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupMojo( "clean", pluginPom );
@@ -74,7 +75,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/nested-clean-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/nested-clean-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/nested-clean-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/nested-clean-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupMojo( "clean", pluginPom );
@@ -99,7 +100,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/empty-clean-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/empty-clean-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/empty-clean-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/empty-clean-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupEmptyMojo( "clean", pluginPom );
@@ -127,7 +128,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/fileset-clean-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/fileset-clean-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/fileset-clean-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/fileset-clean-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupMojo( "clean", pluginPom );
@@ -163,7 +164,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/invalid-directory-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/invalid-directory-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/invalid-directory-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/invalid-directory-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupMojo( "clean", pluginPom );
@@ -192,7 +193,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/missing-directory-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/missing-directory-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/missing-directory-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/missing-directory-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupMojo( "clean", pluginPom );
@@ -223,7 +224,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/locked-file-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/locked-file-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/locked-file-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/locked-file-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupMojo( "clean", pluginPom );
@@ -262,7 +263,7 @@ public class CleanMojoTest
         String pluginPom = getBasedir() + "/src/test/resources/unit/locked-file-test/plugin-pom.xml";
 
         // safety
-        FileUtils.copyDirectory( new File( getBasedir(), "src/test/resources/unit/locked-file-test" ),
+        copyDirectory( new File( getBasedir(), "src/test/resources/unit/locked-file-test" ),
                                  new File( getBasedir(), "target/test-classes/unit/locked-file-test" ) );
 
         CleanMojo mojo = (CleanMojo) lookupMojo( "clean", pluginPom );
@@ -288,7 +289,7 @@ public class CleanMojoTest
      */
     private boolean checkExists( String dir )
     {
-        return FileUtils.fileExists( new File( dir ).getAbsolutePath() );
+        return new File( new File( dir ).getAbsolutePath() ).exists();
     }
 
     /**

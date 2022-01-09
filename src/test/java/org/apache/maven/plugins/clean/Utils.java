@@ -23,7 +23,6 @@ import java.io.File;
 
 import org.codehaus.plexus.util.cli.CommandLineUtils;
 import org.codehaus.plexus.util.cli.Commandline;
-import org.codehaus.plexus.util.cli.StreamConsumer;
 
 /**
  * Testing helpers for the IT scripts.
@@ -49,19 +48,7 @@ public class Utils
             cli.createArg().setValue( "-s" );
             cli.createArg().setFile( target );
             cli.createArg().setFile( link );
-            int code = CommandLineUtils.executeCommandLine( cli, new StreamConsumer()
-            {
-                public void consumeLine( String line )
-                {
-                    System.out.println( line );
-                }
-            }, new StreamConsumer()
-            {
-                public void consumeLine( String line )
-                {
-                    System.err.println( line );
-                }
-            } );
+            int code = CommandLineUtils.executeCommandLine( cli, System.out::println, System.err::println );
             return 0 == code;
         }
         catch ( Exception e )

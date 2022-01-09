@@ -21,10 +21,10 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.shared.utils.Os;
-import org.apache.maven.shared.utils.io.FileUtils;
 
 /**
  * Cleans directories.
@@ -52,29 +52,11 @@ class Cleaner
      */
     Cleaner( final Log log, boolean verbose )
     {
-        logDebug = ( log == null || !log.isDebugEnabled() ) ? null : new Logger()
-        {
-            public void log( CharSequence message )
-            {
-                log.debug( message );
-            }
-        };
+        logDebug = ( log == null || !log.isDebugEnabled() ) ? null : log::debug;
 
-        logInfo = ( log == null || !log.isInfoEnabled() ) ? null : new Logger()
-        {
-            public void log( CharSequence message )
-            {
-                log.info( message );
-            }
-        };
+        logInfo = ( log == null || !log.isInfoEnabled() ) ? null : log::info;
 
-        logWarn = ( log == null || !log.isWarnEnabled() ) ? null : new Logger()
-        {
-            public void log( CharSequence message )
-            {
-                log.warn( message );
-            }
-        };
+        logWarn = ( log == null || !log.isWarnEnabled() ) ? null : log::warn;
 
         logVerbose = verbose ? logInfo : logDebug;
     }
@@ -145,7 +127,7 @@ class Cleaner
         {
             if ( selector == null || selector.couldHoldSelected( pathname ) )
             {
-                final boolean isSymlink = FileUtils.isSymbolicLink( file );
+                final boolean isSymlink = Files.isSymbolicLink( file.toPath() );
                 File canonical = followSymlinks ? file : file.getCanonicalFile();
                 if ( followSymlinks || !isSymlink )
                 {
