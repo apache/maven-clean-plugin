@@ -65,10 +65,10 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>3.1.1</mavenVersion>
-    <javaVersion>7</javaVersion>
+    <mavenVersion>3.2.5</mavenVersion>
+    <javaVersion>8</javaVersion>
     <surefire.version>2.22.2</surefire.version>
-    <mavenPluginToolsVersion>3.6.1</mavenPluginToolsVersion>
+    <mavenPluginToolsVersion>3.6.2</mavenPluginToolsVersion>
     <project.build.outputTimestamp>2020-04-07T21:04:00Z</project.build.outputTimestamp>
   </properties>
 
@@ -77,11 +77,12 @@ under the License.
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-plugin-api</artifactId>
       <version>${mavenVersion}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.shared</groupId>
       <artifactId>maven-shared-utils</artifactId>
-      <version>3.2.1</version>
+      <version>3.3.4</version>
     </dependency>
 
     <!-- dependencies to annotations -->
@@ -95,7 +96,7 @@ under the License.
     <dependency>
       <groupId>org.apache.maven.plugin-testing</groupId>
       <artifactId>maven-plugin-testing-harness</artifactId>
-      <version>3.1.0</version>
+      <version>3.3.0</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -130,7 +131,7 @@ under the License.
         <!-- remove with next parent upgrade -->
         <plugin>
           <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.1.1</version>
+          <version>3.1.2</version>
         </plugin>
         <plugin>
           <artifactId>maven-enforcer-plugin</artifactId>
@@ -139,7 +140,7 @@ under the License.
             <dependency>
               <groupId>org.codehaus.mojo</groupId>
               <artifactId>extra-enforcer-rules</artifactId>
-              <version>1.4</version>
+              <version>1.5.1</version>
             </dependency>
           </dependencies>
         </plugin>
@@ -153,7 +154,7 @@ under the License.
         </plugin>
         <plugin>
           <artifactId>maven-site-plugin</artifactId>
-          <version>3.9.1</version>
+          <version>3.10.0</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -165,7 +166,7 @@ under the License.
           <dependency>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>extra-enforcer-rules</artifactId>
-            <version>1.4</version>
+            <version>1.5.1</version>
           </dependency>
         </dependencies>
       </plugin>

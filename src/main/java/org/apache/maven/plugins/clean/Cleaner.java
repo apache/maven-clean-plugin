@@ -34,7 +34,6 @@ import org.apache.maven.execution.ExecutionListener;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.shared.utils.Os;
-import org.apache.maven.shared.utils.io.FileUtils;
 import org.eclipse.aether.SessionData;
 
 import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_BACKGROUND;
@@ -77,33 +76,15 @@ class Cleaner
      */
     Cleaner( MavenSession session, final Log log, boolean verbose, File fastDir, String fastMode )
     {
-        this.session = session;
-        logDebug = ( log == null || !log.isDebugEnabled() ) ? null : new Logger()
-        {
-            public void log( CharSequence message )
-            {
-                log.debug( message );
-            }
-        };
+        logDebug = ( log == null || !log.isDebugEnabled() ) ? null : log::debug;
 
-        logInfo = ( log == null || !log.isInfoEnabled() ) ? null : new Logger()
-        {
-            public void log( CharSequence message )
-            {
-                log.info( message );
-            }
-        };
+        logInfo = ( log == null || !log.isInfoEnabled() ) ? null : log::info;
 
-        logWarn = ( log == null || !log.isWarnEnabled() ) ? null : new Logger()
-        {
-            public void log( CharSequence message )
-            {
-                log.warn( message );
-            }
-        };
+        logWarn = ( log == null || !log.isWarnEnabled() ) ? null : log::warn;
 
         logVerbose = verbose ? logInfo : logDebug;
 
+        this.session = session;
         this.fastDir = fastDir;
         this.fastMode = fastMode;
     }
@@ -261,7 +242,7 @@ class Cleaner
         {
             if ( selector == null || selector.couldHoldSelected( pathname ) )
             {
-                final boolean isSymlink = FileUtils.isSymbolicLink( file );
+                final boolean isSymlink = Files.isSymbolicLink( file.toPath() );
                 File canonical = followSymlinks ? file : file.getCanonicalFile();
                 if ( followSymlinks || !isSymlink )
                 {
