@@ -19,6 +19,7 @@ package org.apache.maven.plugins.clean;
  * under the License.
  */
 
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -47,6 +48,12 @@ import java.io.IOException;
 public class CleanMojo
     extends AbstractMojo
 {
+
+    public static final String FAST_MODE_BACKGROUND = "background";
+
+    public static final String FAST_MODE_AT_END = "at-end";
+
+    public static final String FAST_MODE_DEFER = "defer";
 
     /**
      * This is where build results go.
@@ -162,6 +169,49 @@ public class CleanMojo
     private boolean excludeDefaultDirectories;
 
     /**
+     * Enables fast clean if possible. If set to <code>true</code>, when the plugin is executed, a directory to
+     * be deleted will be atomically moved inside the <code>maven.clean.fastDir</code> directory and a thread will
+     * be launched to delete the needed files in the background.  When the build is completed, maven will wait
+     * until all the files have been deleted.  If any problem occurs during the atomic move of the directories,
+     * the plugin will default to the traditional deletion mechanism.
+     *
+     * @since 3.2
+     */
+    @Parameter( property = "maven.clean.fast", defaultValue = "false" )
+    private boolean fast;
+
+    /**
+     * When fast clean is specified, the <code>fastDir</code> property will be used as the location where directories
+     * to be deleted will be moved prior to background deletion.  If not specified, the
+     * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
+     * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
+     * In order for fast clean to work correctly, this directory and the various directories that will be deleted
+     * should usually reside on the same volume. The exact conditions are system dependant though, but if an atomic
+     * move is not supported, the standard deletion mechanism will be used.
+     *
+     * @since 3.2
+     * @see #fast
+     */
+    @Parameter( property = "maven.clean.fastDir" )
+    private File fastDir;
+
+    /**
+     * Mode to use when using fast clean.  Values are: <code>background</code> to start deletion immediately and
+     * waiting for all files to be deleted when the session ends, <code>at-end</code> to indicate that the actual
+     * deletion should be performed synchronously when the session ends, or <code>defer</code> to specify that
+     * the actual file deletion should be started in the background when the session ends (this should only be used
+     * when maven is embedded in a long running process).
+     *
+     * @since 3.2
+     * @see #fast
+     */
+    @Parameter( property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND )
+    private String fastMode;
+
+    @Parameter( defaultValue = "${session}", readonly = true )
+    private MavenSession session;
+
+    /**
      * Deletes file-sets in the following project build directory order: (source) directory, output directory, test
      * directory, report directory, and then the additional file-sets.
      *
@@ -177,7 +227,36 @@ public class CleanMojo
             return;
         }
 
-        Cleaner cleaner = new Cleaner( getLog(), isVerbose() );
+        String multiModuleProjectDirectory = session != null
+                ? session.getSystemProperties().getProperty( "maven.multiModuleProjectDirectory" ) : null;
+        File fastDir;
+        if ( fast && this.fastDir != null )
+        {
+            fastDir = this.fastDir;
+        }
+        else if ( fast && multiModuleProjectDirectory != null )
+        {
+            fastDir = new File( multiModuleProjectDirectory, "target/.clean" );
+        }
+        else
+        {
+            fastDir = null;
+            if ( fast )
+            {
+                getLog().warn( "Fast clean requires maven 3.3.1 or newer, "
+                        + "or an explicit directory to be specified with the 'fastDir' configuration of "
+                        + "this plugin, or the 'maven.clean.fastDir' user property to be set." );
+            }
+        }
+        if ( fast && !FAST_MODE_BACKGROUND.equals( fastMode )
+                  && !FAST_MODE_AT_END.equals( fastMode )
+                  && !FAST_MODE_DEFER.equals( fastMode ) )
+        {
+            throw new IllegalArgumentException( "Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
+                    + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'." );
+        }
+
+        Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fastDir, fastMode );
 
         try
         {

@@ -21,10 +21,23 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
+import org.apache.maven.execution.ExecutionListener;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.shared.utils.Os;
+import org.eclipse.aether.SessionData;
+
+import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_BACKGROUND;
+import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_DEFER;
 
 /**
  * Cleans directories.
@@ -36,6 +49,13 @@ class Cleaner
 
     private static final boolean ON_WINDOWS = Os.isFamily( Os.FAMILY_WINDOWS );
 
+    private static final String LAST_DIRECTORY_TO_DELETE = Cleaner.class.getName() + ".lastDirectoryToDelete";
+
+    /**
+     * The maven session.  This is typically non-null in a real run, but it can be during unit tests.
+     */
+    private final MavenSession session;
+
     private final Logger logDebug;
 
     private final Logger logInfo;
@@ -44,13 +64,17 @@ class Cleaner
 
     private final Logger logWarn;
 
+    private final File fastDir;
+
+    private final String fastMode;
+
     /**
      * Creates a new cleaner.
-     * 
      * @param log The logger to use, may be <code>null</code> to disable logging.
      * @param verbose Whether to perform verbose logging.
+     * @param fastMode The fast deletion mode
      */
-    Cleaner( final Log log, boolean verbose )
+    Cleaner( MavenSession session, final Log log, boolean verbose, File fastDir, String fastMode )
     {
         logDebug = ( log == null || !log.isDebugEnabled() ) ? null : log::debug;
 
@@ -59,6 +83,10 @@ class Cleaner
         logWarn = ( log == null || !log.isWarnEnabled() ) ? null : log::warn;
 
         logVerbose = verbose ? logInfo : logDebug;
+
+        this.session = session;
+        this.fastDir = fastDir;
+        this.fastMode = fastMode;
     }
 
     /**
@@ -97,7 +125,94 @@ class Cleaner
 
         File file = followSymlinks ? basedir : basedir.getCanonicalFile();
 
+        if ( selector == null && !followSymlinks && fastDir != null && session != null )
+        {
+            // If anything wrong happens, we'll just use the usual deletion mechanism
+            if ( fastDelete( file ) )
+            {
+                return;
+            }
+        }
+
         delete( file, "", selector, followSymlinks, failOnError, retryOnError );
+    }
+
+    private boolean fastDelete( File baseDirFile )
+    {
+        Path baseDir = baseDirFile.toPath();
+        Path fastDir = this.fastDir.toPath();
+        // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/.clean for example
+        if ( fastDir.toAbsolutePath().startsWith( baseDir.toAbsolutePath() ) )
+        {
+            try
+            {
+                String prefix = baseDir.getFileName().toString() + ".";
+                Path tmpDir = Files.createTempDirectory( baseDir.getParent(), prefix );
+                try
+                {
+                    Files.move( baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING );
+                    if ( session != null )
+                    {
+                        session.getRepositorySession().getData().set( LAST_DIRECTORY_TO_DELETE, baseDir.toFile() );
+                    }
+                    baseDir = tmpDir;
+                }
+                catch ( IOException e )
+                {
+                    Files.delete( tmpDir );
+                    throw e;
+                }
+            }
+            catch ( IOException e )
+            {
+                if ( logDebug != null )
+                {
+                    // TODO: this Logger interface cannot log exceptions and needs refactoring
+                    logDebug.log( "Unable to fast delete directory: " + e );
+                }
+                return false;
+            }
+        }
+        // Create fastDir and the needed parents if needed
+        try
+        {
+            if ( !Files.isDirectory( fastDir ) )
+            {
+                Files.createDirectories( fastDir );
+            }
+        }
+        catch ( IOException e )
+        {
+            if ( logDebug != null )
+            {
+                // TODO: this Logger interface cannot log exceptions and needs refactoring
+                logDebug.log( "Unable to fast delete directory as the path "
+                        + fastDir + " does not point to a directory or cannot be created: " + e );
+            }
+            return false;
+        }
+
+        try
+        {
+            Path tmpDir = Files.createTempDirectory( fastDir, "" );
+            Path dstDir = tmpDir.resolve( baseDir.getFileName() );
+            // Note that by specifying the ATOMIC_MOVE, we expect an exception to be thrown
+            // if the path leads to a directory on another mountpoint.  If this is the case
+            // or any other exception occurs, an exception will be thrown in which case
+            // the method will return false and the usual deletion will be performed.
+            Files.move( baseDir, dstDir, StandardCopyOption.ATOMIC_MOVE );
+            BackgroundCleaner.delete( this, tmpDir.toFile(), fastMode );
+            return true;
+        }
+        catch ( IOException e )
+        {
+            if ( logDebug != null )
+            {
+                // TODO: this Logger interface cannot log exceptions and needs refactoring
+                logDebug.log( "Unable to fast delete directory: " + e );
+            }
+            return false;
+        }
     }
 
     /**
@@ -265,6 +380,202 @@ class Cleaner
     {
 
         void log( CharSequence message );
+
+    }
+
+    private static class BackgroundCleaner extends Thread
+    {
+
+        private static BackgroundCleaner instance;
+
+        private final Deque<File> filesToDelete = new ArrayDeque<>();
+
+        private final Cleaner cleaner;
+
+        private final String fastMode;
+
+        private static final int NEW = 0;
+        private static final int RUNNING = 1;
+        private static final int STOPPED = 2;
+
+        private int status = NEW;
+
+        public static void delete( Cleaner cleaner, File dir, String fastMode )
+        {
+            synchronized ( BackgroundCleaner.class )
+            {
+                if ( instance == null || !instance.doDelete( dir ) )
+                {
+                    instance = new BackgroundCleaner( cleaner, dir, fastMode );
+                }
+            }
+        }
+
+        static void sessionEnd()
+        {
+            synchronized ( BackgroundCleaner.class )
+            {
+                if ( instance != null )
+                {
+                    instance.doSessionEnd();
+                }
+            }
+        }
+
+        private BackgroundCleaner( Cleaner cleaner, File dir, String fastMode )
+        {
+            super( "mvn-background-cleaner" );
+            this.cleaner = cleaner;
+            this.fastMode = fastMode;
+            init( cleaner.fastDir, dir );
+        }
+
+        public void run()
+        {
+            while ( true )
+            {
+                File basedir = pollNext();
+                if ( basedir == null )
+                {
+                    break;
+                }
+                try
+                {
+                    cleaner.delete( basedir, "", null, false, false, true );
+                }
+                catch ( IOException e )
+                {
+                    // do not display errors
+                }
+            }
+        }
+
+        synchronized void init( File fastDir, File dir )
+        {
+            if ( fastDir.isDirectory() )
+            {
+                File[] children = fastDir.listFiles();
+                if ( children != null && children.length > 0 )
+                {
+                    for ( File child : children )
+                    {
+                        doDelete( child );
+                    }
+                }
+            }
+            doDelete( dir );
+        }
+
+        synchronized File pollNext()
+        {
+            File basedir = filesToDelete.poll();
+            if ( basedir == null )
+            {
+                if ( cleaner.session != null )
+                {
+                    SessionData data = cleaner.session.getRepositorySession().getData();
+                    File lastDir = ( File ) data.get( LAST_DIRECTORY_TO_DELETE );
+                    if ( lastDir != null )
+                    {
+                        data.set( LAST_DIRECTORY_TO_DELETE, null );
+                        return lastDir;
+                    }
+                }
+                status = STOPPED;
+                notifyAll();
+            }
+            return basedir;
+        }
+
+        synchronized boolean doDelete( File dir )
+        {
+            if ( status == STOPPED )
+            {
+                return false;
+            }
+            filesToDelete.add( dir );
+            if ( status == NEW && FAST_MODE_BACKGROUND.equals( fastMode ) )
+            {
+                status = RUNNING;
+                notifyAll();
+                start();
+            }
+            wrapExecutionListener();
+            return true;
+        }
+
+        /**
+         * If this has not been done already, we wrap the ExecutionListener inside a proxy
+         * which simply delegates call to the previous listener.  When the session ends, it will
+         * also call {@link BackgroundCleaner#sessionEnd()}.
+         * There's no clean API to do that properly as this is a very unusual use case for a plugin
+         * to outlive its main execution.
+         */
+        private void wrapExecutionListener()
+        {
+            ExecutionListener executionListener = cleaner.session.getRequest().getExecutionListener();
+            if ( executionListener == null
+                    || !Proxy.isProxyClass( executionListener.getClass() )
+                    || !( Proxy.getInvocationHandler( executionListener ) instanceof SpyInvocationHandler ) )
+            {
+                ExecutionListener listener = ( ExecutionListener ) Proxy.newProxyInstance(
+                        ExecutionListener.class.getClassLoader(),
+                        new Class[] { ExecutionListener.class },
+                        new SpyInvocationHandler( executionListener ) );
+                cleaner.session.getRequest().setExecutionListener( listener );
+            }
+        }
+
+        synchronized void doSessionEnd()
+        {
+            if ( status != STOPPED )
+            {
+                if ( status == NEW )
+                {
+                    start();
+                }
+                if ( !FAST_MODE_DEFER.equals( fastMode ) )
+                {
+                    try
+                    {
+                        cleaner.logInfo.log( "Waiting for background file deletion" );
+                        while ( status != STOPPED )
+                        {
+                            wait();
+                        }
+                    }
+                    catch ( InterruptedException e )
+                    {
+                        // ignore
+                    }
+                }
+            }
+        }
+
+    }
+
+    static class SpyInvocationHandler implements InvocationHandler
+    {
+        private final ExecutionListener delegate;
+
+        SpyInvocationHandler( ExecutionListener delegate )
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Object invoke( Object proxy, Method method, Object[] args ) throws Throwable
+        {
+            if ( "sessionEnded".equals( method.getName() ) )
+            {
+                BackgroundCleaner.sessionEnd();
+            }
+            if ( delegate != null )
+            {
+                return method.invoke( delegate, args );
+            }
+            return null;
+        }
 
     }
 
