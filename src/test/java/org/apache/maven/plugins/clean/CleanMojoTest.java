@@ -18,15 +18,22 @@
  */
 package org.apache.maven.plugins.clean;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
 
 import static org.apache.commons.io.FileUtils.copyDirectory;
+import static org.codehaus.plexus.util.IOUtil.copy;
 
 /**
  * Test the clean mojo.
@@ -205,7 +212,7 @@ public class CleanMojoTest extends AbstractMojoTestCase {
      */
     public void testCleanLockedFile() throws Exception {
         if (!System.getProperty("os.name").toLowerCase().contains("windows")) {
-            assertTrue("Ignored this test on none Windows based systems", true);
+            assertTrue("Ignored this test on non Windows based systems", true);
             return;
         }
 
@@ -239,7 +246,7 @@ public class CleanMojoTest extends AbstractMojoTestCase {
      */
     public void testCleanLockedFileWithNoError() throws Exception {
         if (!System.getProperty("os.name").toLowerCase().contains("windows")) {
-            assertTrue("Ignored this test on none Windows based systems", true);
+            assertTrue("Ignore this test on non Windows based systems", true);
             return;
         }
 
@@ -262,6 +269,90 @@ public class CleanMojoTest extends AbstractMojoTestCase {
         } catch (MojoExecutionException expected) {
             fail("Should display a warning when deleting a file that is locked");
         }
+    }
+
+    /**
+     * Test the followLink option with windows junctions
+     * @throws Exception
+     */
+    public void testFollowLinksWithWindowsJunction() throws Exception {
+        if (!System.getProperty("os.name").toLowerCase().contains("windows")) {
+            assertTrue("Ignore this test on non Windows based systems", true);
+            return;
+        }
+
+        testSymlink((link, target) -> {
+            Process process = new ProcessBuilder()
+                    .directory(link.getParent().toFile())
+                    .command("cmd", "/c", "mklink", "/j", link.getFileName().toString(), target.toString())
+                    .start();
+            process.waitFor();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            copy(process.getInputStream(), baos);
+            copy(process.getErrorStream(), baos);
+            if (!Files.exists(link)) {
+                throw new IOException("Unable to create junction: " + baos);
+            }
+        });
+    }
+
+    /**
+     * Test the followLink option with sym link
+     * @throws Exception
+     */
+    public void testFollowLinksWithSymLinkOnPosix() throws Exception {
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            assertTrue("Ignore this test on Windows based systems", true);
+            return;
+        }
+
+        testSymlink((link, target) -> {
+            try {
+                Files.createSymbolicLink(link, target);
+            } catch (IOException e) {
+                throw new IOException("Unable to create symbolic link", e);
+            }
+        });
+    }
+
+    @FunctionalInterface
+    interface LinkCreator {
+        void createLink(Path link, Path target) throws Exception;
+    }
+
+    private void testSymlink(LinkCreator linkCreator) throws Exception {
+        Cleaner cleaner = new Cleaner(null, null, false, null, null);
+        Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
+        Path dirWithLnk = testDir.resolve("dir");
+        Path orgDir = testDir.resolve("org-dir");
+        Path jctDir = dirWithLnk.resolve("jct-dir");
+        Path file = orgDir.resolve("file.txt");
+
+        // create directories, links and file
+        Files.createDirectories(dirWithLnk);
+        Files.createDirectories(orgDir);
+        Files.write(file, Collections.singleton("Hello world"));
+        linkCreator.createLink(jctDir, orgDir);
+        // delete
+        cleaner.delete(dirWithLnk.toFile(), null, false, true, false);
+        // verify
+        assertTrue(Files.exists(file));
+        assertFalse(Files.exists(jctDir));
+        assertTrue(Files.exists(orgDir));
+        assertFalse(Files.exists(dirWithLnk));
+
+        // create directories, links and file
+        Files.createDirectories(dirWithLnk);
+        Files.createDirectories(orgDir);
+        Files.write(file, Collections.singleton("Hello world"));
+        linkCreator.createLink(jctDir, orgDir);
+        // delete
+        cleaner.delete(dirWithLnk.toFile(), null, true, true, false);
+        // verify
+        assertFalse(Files.exists(file));
+        assertFalse(Files.exists(jctDir));
+        assertTrue(Files.exists(orgDir));
+        assertFalse(Files.exists(dirWithLnk));
     }
 
     /**
