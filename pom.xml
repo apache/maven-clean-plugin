@@ -65,7 +65,7 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>3.2.5</mavenVersion>
+    <mavenVersion>3.8.6</mavenVersion>
     <javaVersion>8</javaVersion>
     <surefire.version>2.22.2</surefire.version>
     <mavenPluginToolsVersion>3.6.4</mavenPluginToolsVersion>
