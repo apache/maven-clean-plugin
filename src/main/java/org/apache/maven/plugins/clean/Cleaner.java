@@ -20,9 +20,6 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -30,12 +27,16 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import org.apache.maven.execution.ExecutionListener;
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.api.Event;
+import org.apache.maven.api.EventType;
+import org.apache.maven.api.Listener;
+import org.apache.maven.api.Session;
+import org.apache.maven.api.SessionData;
+import org.apache.maven.api.plugin.Log;
 import org.codehaus.plexus.util.Os;
-import org.eclipse.aether.SessionData;
 
 import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_BACKGROUND;
 import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_DEFER;
@@ -54,7 +55,7 @@ class Cleaner {
     /**
      * The maven session.  This is typically non-null in a real run, but it can be during unit tests.
      */
-    private final MavenSession session;
+    private final Session session;
 
     private final Logger logDebug;
 
@@ -64,7 +65,7 @@ class Cleaner {
 
     private final Logger logWarn;
 
-    private final File fastDir;
+    private final Path fastDir;
 
     private final String fastMode;
 
@@ -74,7 +75,7 @@ class Cleaner {
      * @param verbose Whether to perform verbose logging.
      * @param fastMode The fast deletion mode
      */
-    Cleaner(MavenSession session, final Log log, boolean verbose, File fastDir, String fastMode) {
+    Cleaner(Session session, final Log log, boolean verbose, Path fastDir, String fastMode) {
         logDebug = (log == null || !log.isDebugEnabled()) ? null : log::debug;
 
         logInfo = (log == null || !log.isInfoEnabled()) ? null : log::info;
@@ -101,10 +102,10 @@ class Cleaner {
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
     public void delete(
-            File basedir, Selector selector, boolean followSymlinks, boolean failOnError, boolean retryOnError)
+            Path basedir, Selector selector, boolean followSymlinks, boolean failOnError, boolean retryOnError)
             throws IOException {
-        if (!basedir.isDirectory()) {
-            if (!basedir.exists()) {
+        if (!Files.isDirectory(basedir)) {
+            if (!Files.exists(basedir)) {
                 if (logDebug != null) {
                     logDebug.log("Skipping non-existing directory " + basedir);
                 }
@@ -117,7 +118,7 @@ class Cleaner {
             logInfo.log("Deleting " + basedir + (selector != null ? " (" + selector + ")" : ""));
         }
 
-        File file = followSymlinks ? basedir : basedir.getCanonicalFile();
+        Path file = followSymlinks ? basedir : basedir.toAbsolutePath().normalize();
 
         if (selector == null && !followSymlinks && fastDir != null && session != null) {
             // If anything wrong happens, we'll just use the usual deletion mechanism
@@ -129,9 +130,8 @@ class Cleaner {
         delete(file, "", selector, followSymlinks, failOnError, retryOnError);
     }
 
-    private boolean fastDelete(File baseDirFile) {
-        Path baseDir = baseDirFile.toPath();
-        Path fastDir = this.fastDir.toPath();
+    private boolean fastDelete(Path baseDir) {
+        Path fastDir = this.fastDir;
         // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/.clean for example
         if (fastDir.toAbsolutePath().startsWith(baseDir.toAbsolutePath())) {
             try {
@@ -140,7 +140,7 @@ class Cleaner {
                 try {
                     Files.move(baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING);
                     if (session != null) {
-                        session.getRepositorySession().getData().set(LAST_DIRECTORY_TO_DELETE, baseDir.toFile());
+                        session.getData().set(LAST_DIRECTORY_TO_DELETE, baseDir.toFile());
                     }
                     baseDir = tmpDir;
                 } catch (IOException e) {
@@ -177,7 +177,7 @@ class Cleaner {
             // or any other exception occurs, an exception will be thrown in which case
             // the method will return false and the usual deletion will be performed.
             Files.move(baseDir, dstDir, StandardCopyOption.ATOMIC_MOVE);
-            BackgroundCleaner.delete(this, tmpDir.toFile(), fastMode);
+            BackgroundCleaner.delete(this, tmpDir, fastMode);
             return true;
         } catch (IOException e) {
             if (logDebug != null) {
@@ -204,7 +204,7 @@ class Cleaner {
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
     private Result delete(
-            File file,
+            Path file,
             String pathname,
             Selector selector,
             boolean followSymlinks,
@@ -213,20 +213,23 @@ class Cleaner {
             throws IOException {
         Result result = new Result();
 
-        boolean isDirectory = file.isDirectory();
+        boolean isDirectory = Files.isDirectory(file);
 
         if (isDirectory) {
             if (selector == null || selector.couldHoldSelected(pathname)) {
-                if (followSymlinks || !isSymbolicLink(file.toPath())) {
-                    File canonical = followSymlinks ? file : file.getCanonicalFile();
-                    String[] filenames = canonical.list();
-                    if (filenames != null) {
-                        String prefix = pathname.length() > 0 ? pathname + File.separatorChar : "";
-                        for (int i = filenames.length - 1; i >= 0; i--) {
-                            String filename = filenames[i];
-                            File child = new File(canonical, filename);
+                final boolean isSymlink = Files.isSymbolicLink(file);
+                Path canonical = followSymlinks ? file : file.toAbsolutePath().normalize();
+                if (followSymlinks || !isSymlink) {
+                    String prefix = pathname.length() > 0 ? pathname + File.separatorChar : "";
+                    try (Stream<Path> children = Files.list(canonical)) {
+                        for (Path child : children.collect(Collectors.toList())) {
                             result.update(delete(
-                                    child, prefix + filename, selector, followSymlinks, failOnError, retryOnError));
+                                    child,
+                                    prefix + child.getFileName(),
+                                    selector,
+                                    followSymlinks,
+                                    failOnError,
+                                    retryOnError));
                         }
                     }
                 } else if (logDebug != null) {
@@ -241,7 +244,7 @@ class Cleaner {
             if (logVerbose != null) {
                 if (isDirectory) {
                     logVerbose.log("Deleting directory " + file);
-                } else if (file.exists()) {
+                } else if (Files.exists(file)) {
                     logVerbose.log("Deleting file " + file);
                 } else {
                     logVerbose.log("Deleting dangling symlink " + file);
@@ -262,19 +265,14 @@ class Cleaner {
                 || (attrs.isDirectory() && attrs.isOther());
     }
 
-    /**
-     * Deletes the specified file, directory. If the path denotes a symlink, only the link is removed, its target is
-     * left untouched.
-     *
-     * @param file The file/directory to delete, must not be <code>null</code>.
-     * @param failOnError Whether to abort with an exception in case the file/directory could not be deleted.
-     * @param retryOnError Whether to undertake additional delete attempts in case the first attempt failed.
-     * @return <code>0</code> if the file was deleted, <code>1</code> otherwise.
-     * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
-     */
-    private int delete(File file, boolean failOnError, boolean retryOnError) throws IOException {
-        if (!file.delete()) {
+    private int delete(Path file, boolean failOnError, boolean retryOnError) throws IOException {
+        try {
+            Files.deleteIfExists(file);
+            return 0;
+        } catch (IOException e) {
             boolean deleted = false;
+            IOException exception = new IOException("Failed to delete " + file);
+            exception.addSuppressed(e);
 
             if (retryOnError) {
                 if (ON_WINDOWS) {
@@ -286,13 +284,18 @@ class Cleaner {
                 for (int i = 0; !deleted && i < delays.length; i++) {
                     try {
                         Thread.sleep(delays[i]);
-                    } catch (InterruptedException e) {
-                        // ignore
+                    } catch (InterruptedException e2) {
+                        exception.addSuppressed(e2);
                     }
-                    deleted = file.delete() || !file.exists();
+                    try {
+                        Files.deleteIfExists(file);
+                        return 0;
+                    } catch (IOException e2) {
+                        exception.addSuppressed(e2);
+                    }
                 }
             } else {
-                deleted = !file.exists();
+                deleted = !Files.exists(file);
             }
 
             if (!deleted) {
@@ -331,7 +334,7 @@ class Cleaner {
 
         private static BackgroundCleaner instance;
 
-        private final Deque<File> filesToDelete = new ArrayDeque<>();
+        private final Deque<Path> filesToDelete = new ArrayDeque<>();
 
         private final Cleaner cleaner;
 
@@ -343,7 +346,7 @@ class Cleaner {
 
         private int status = NEW;
 
-        public static void delete(Cleaner cleaner, File dir, String fastMode) {
+        public static void delete(Cleaner cleaner, Path dir, String fastMode) {
             synchronized (BackgroundCleaner.class) {
                 if (instance == null || !instance.doDelete(dir)) {
                     instance = new BackgroundCleaner(cleaner, dir, fastMode);
@@ -359,7 +362,7 @@ class Cleaner {
             }
         }
 
-        private BackgroundCleaner(Cleaner cleaner, File dir, String fastMode) {
+        private BackgroundCleaner(Cleaner cleaner, Path dir, String fastMode) {
             super("mvn-background-cleaner");
             this.cleaner = cleaner;
             this.fastMode = fastMode;
@@ -368,7 +371,7 @@ class Cleaner {
 
         public void run() {
             while (true) {
-                File basedir = pollNext();
+                Path basedir = pollNext();
                 if (basedir == null) {
                     break;
                 }
@@ -380,24 +383,25 @@ class Cleaner {
             }
         }
 
-        synchronized void init(File fastDir, File dir) {
-            if (fastDir.isDirectory()) {
-                File[] children = fastDir.listFiles();
-                if (children != null && children.length > 0) {
-                    for (File child : children) {
-                        doDelete(child);
+        synchronized void init(Path fastDir, Path dir) {
+            if (Files.isDirectory(fastDir)) {
+                try {
+                    try (Stream<Path> children = Files.list(fastDir)) {
+                        children.forEach(this::doDelete);
                     }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
             }
             doDelete(dir);
         }
 
-        synchronized File pollNext() {
-            File basedir = filesToDelete.poll();
+        synchronized Path pollNext() {
+            Path basedir = filesToDelete.poll();
             if (basedir == null) {
                 if (cleaner.session != null) {
-                    SessionData data = cleaner.session.getRepositorySession().getData();
-                    File lastDir = (File) data.get(LAST_DIRECTORY_TO_DELETE);
+                    SessionData data = cleaner.session.getData();
+                    Path lastDir = (Path) data.get(LAST_DIRECTORY_TO_DELETE);
                     if (lastDir != null) {
                         data.set(LAST_DIRECTORY_TO_DELETE, null);
                         return lastDir;
@@ -409,7 +413,7 @@ class Cleaner {
             return basedir;
         }
 
-        synchronized boolean doDelete(File dir) {
+        synchronized boolean doDelete(Path dir) {
             if (status == STOPPED) {
                 return false;
             }
@@ -431,15 +435,10 @@ class Cleaner {
          * to outlive its main execution.
          */
         private void wrapExecutionListener() {
-            ExecutionListener executionListener = cleaner.session.getRequest().getExecutionListener();
-            if (executionListener == null
-                    || !Proxy.isProxyClass(executionListener.getClass())
-                    || !(Proxy.getInvocationHandler(executionListener) instanceof SpyInvocationHandler)) {
-                ExecutionListener listener = (ExecutionListener) Proxy.newProxyInstance(
-                        ExecutionListener.class.getClassLoader(),
-                        new Class[] {ExecutionListener.class},
-                        new SpyInvocationHandler(executionListener));
-                cleaner.session.getRequest().setExecutionListener(listener);
+            synchronized (CleanerListener.class) {
+                if (cleaner.session.getListeners().stream().noneMatch(l -> l instanceof CleanerListener)) {
+                    cleaner.session.registerListener(new CleanerListener());
+                }
             }
         }
 
@@ -464,22 +463,12 @@ class Cleaner {
         }
     }
 
-    static class SpyInvocationHandler implements InvocationHandler {
-        private final ExecutionListener delegate;
-
-        SpyInvocationHandler(ExecutionListener delegate) {
-            this.delegate = delegate;
-        }
-
+    static class CleanerListener implements Listener {
         @Override
-        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            if ("sessionEnded".equals(method.getName())) {
+        public void onEvent(Event event) {
+            if (event.getType() == EventType.SESSION_ENDED) {
                 BackgroundCleaner.sessionEnd();
             }
-            if (delegate != null) {
-                return method.invoke(delegate, args);
-            }
-            return null;
         }
     }
 }
