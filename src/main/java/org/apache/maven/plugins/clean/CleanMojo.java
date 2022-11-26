@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.maven.plugins.clean;
 
 /*
@@ -19,14 +37,13 @@ package org.apache.maven.plugins.clean;
  * under the License.
  */
 
+import java.io.File;
+import java.io.IOException;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-
-import java.io.File;
-import java.io.IOException;
 
 /**
  * Goal which cleans the build.
@@ -44,10 +61,8 @@ import java.io.IOException;
  * @see org.apache.maven.plugins.clean.Fileset
  * @since 2.0
  */
-@Mojo( name = "clean", threadSafe = true )
-public class CleanMojo
-    extends AbstractMojo
-{
+@Mojo(name = "clean", threadSafe = true)
+public class CleanMojo extends AbstractMojo {
 
     public static final String FAST_MODE_BACKGROUND = "background";
 
@@ -58,19 +73,19 @@ public class CleanMojo
     /**
      * This is where build results go.
      */
-    @Parameter( defaultValue = "${project.build.directory}", readonly = true, required = true )
+    @Parameter(defaultValue = "${project.build.directory}", readonly = true, required = true)
     private File directory;
 
     /**
      * This is where compiled classes go.
      */
-    @Parameter( defaultValue = "${project.build.outputDirectory}", readonly = true, required = true )
+    @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
     private File outputDirectory;
 
     /**
      * This is where compiled test classes go.
      */
-    @Parameter( defaultValue = "${project.build.testOutputDirectory}", readonly = true, required = true )
+    @Parameter(defaultValue = "${project.build.testOutputDirectory}", readonly = true, required = true)
     private File testOutputDirectory;
 
     /**
@@ -78,7 +93,7 @@ public class CleanMojo
      *
      * @since 2.1.1
      */
-    @Parameter( defaultValue = "${project.build.outputDirectory}", readonly = true, required = true )
+    @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
     private File reportDirectory;
 
     /**
@@ -86,15 +101,15 @@ public class CleanMojo
      * global debug flag (compare command line switch <code>-X</code>). <br/>
      * Starting with <b>3.0.0</b> the property has been renamed from <code>clean.verbose</code> to
      * <code>maven.clean.verbose</code>.
-     * 
+     *
      * @since 2.1
      */
-    @Parameter( property = "maven.clean.verbose" )
+    @Parameter(property = "maven.clean.verbose")
     private Boolean verbose;
 
     /**
      * The list of file sets to delete, in addition to the default directories. For example:
-     * 
+     *
      * <pre>
      * &lt;filesets&gt;
      *   &lt;fileset&gt;
@@ -123,20 +138,20 @@ public class CleanMojo
      * performance by setting this parameter to <code>true</code>. <br/>
      * Starting with <code>3.0.0</code> the property has been renamed from <code>clean.followSymLinks</code> to
      * <code>maven.clean.followSymLinks</code>.
-     * 
+     *
      * @since 2.1
      */
-    @Parameter( property = "maven.clean.followSymLinks", defaultValue = "false" )
+    @Parameter(property = "maven.clean.followSymLinks", defaultValue = "false")
     private boolean followSymLinks;
 
     /**
      * Disables the plugin execution. <br/>
      * Starting with <code>3.0.0</code> the property has been renamed from <code>clean.skip</code> to
      * <code>maven.clean.skip</code>.
-     * 
+     *
      * @since 2.2
      */
-    @Parameter( property = "maven.clean.skip", defaultValue = "false" )
+    @Parameter(property = "maven.clean.skip", defaultValue = "false")
     private boolean skip;
 
     /**
@@ -144,7 +159,7 @@ public class CleanMojo
      *
      * @since 2.2
      */
-    @Parameter( property = "maven.clean.failOnError", defaultValue = "true" )
+    @Parameter(property = "maven.clean.failOnError", defaultValue = "true")
     private boolean failOnError;
 
     /**
@@ -154,7 +169,7 @@ public class CleanMojo
      *
      * @since 2.4.2
      */
-    @Parameter( property = "maven.clean.retryOnError", defaultValue = "true" )
+    @Parameter(property = "maven.clean.retryOnError", defaultValue = "true")
     private boolean retryOnError;
 
     /**
@@ -165,7 +180,7 @@ public class CleanMojo
      *
      * @since 2.3
      */
-    @Parameter( property = "maven.clean.excludeDefaultDirectories", defaultValue = "false" )
+    @Parameter(property = "maven.clean.excludeDefaultDirectories", defaultValue = "false")
     private boolean excludeDefaultDirectories;
 
     /**
@@ -177,7 +192,7 @@ public class CleanMojo
      *
      * @since 3.2
      */
-    @Parameter( property = "maven.clean.fast", defaultValue = "false" )
+    @Parameter(property = "maven.clean.fast", defaultValue = "false")
     private boolean fast;
 
     /**
@@ -192,7 +207,7 @@ public class CleanMojo
      * @since 3.2
      * @see #fast
      */
-    @Parameter( property = "maven.clean.fastDir" )
+    @Parameter(property = "maven.clean.fastDir")
     private File fastDir;
 
     /**
@@ -205,10 +220,10 @@ public class CleanMojo
      * @since 3.2
      * @see #fast
      */
-    @Parameter( property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND )
+    @Parameter(property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND)
     private String fastMode;
 
-    @Parameter( defaultValue = "${session}", readonly = true )
+    @Parameter(defaultValue = "${session}", readonly = true)
     private MavenSession session;
 
     /**
@@ -218,74 +233,57 @@ public class CleanMojo
      * @throws MojoExecutionException When a directory failed to get deleted.
      * @see org.apache.maven.plugin.Mojo#execute()
      */
-    public void execute()
-        throws MojoExecutionException
-    {
-        if ( skip )
-        {
-            getLog().info( "Clean is skipped." );
+    public void execute() throws MojoExecutionException {
+        if (skip) {
+            getLog().info("Clean is skipped.");
             return;
         }
 
-        String multiModuleProjectDirectory = session != null
-                ? session.getSystemProperties().getProperty( "maven.multiModuleProjectDirectory" ) : null;
+        String multiModuleProjectDirectory =
+                session != null ? session.getSystemProperties().getProperty("maven.multiModuleProjectDirectory") : null;
         File fastDir;
-        if ( fast && this.fastDir != null )
-        {
+        if (fast && this.fastDir != null) {
             fastDir = this.fastDir;
-        }
-        else if ( fast && multiModuleProjectDirectory != null )
-        {
-            fastDir = new File( multiModuleProjectDirectory, "target/.clean" );
-        }
-        else
-        {
+        } else if (fast && multiModuleProjectDirectory != null) {
+            fastDir = new File(multiModuleProjectDirectory, "target/.clean");
+        } else {
             fastDir = null;
-            if ( fast )
-            {
-                getLog().warn( "Fast clean requires maven 3.3.1 or newer, "
+            if (fast) {
+                getLog().warn("Fast clean requires maven 3.3.1 or newer, "
                         + "or an explicit directory to be specified with the 'fastDir' configuration of "
-                        + "this plugin, or the 'maven.clean.fastDir' user property to be set." );
+                        + "this plugin, or the 'maven.clean.fastDir' user property to be set.");
             }
         }
-        if ( fast && !FAST_MODE_BACKGROUND.equals( fastMode )
-                  && !FAST_MODE_AT_END.equals( fastMode )
-                  && !FAST_MODE_DEFER.equals( fastMode ) )
-        {
-            throw new IllegalArgumentException( "Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
-                    + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'." );
+        if (fast
+                && !FAST_MODE_BACKGROUND.equals(fastMode)
+                && !FAST_MODE_AT_END.equals(fastMode)
+                && !FAST_MODE_DEFER.equals(fastMode)) {
+            throw new IllegalArgumentException("Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
+                    + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'.");
         }
 
-        Cleaner cleaner = new Cleaner( session, getLog(), isVerbose(), fastDir, fastMode );
+        Cleaner cleaner = new Cleaner(session, getLog(), isVerbose(), fastDir, fastMode);
 
-        try
-        {
-            for ( File directoryItem : getDirectories() )
-            {
-                if ( directoryItem != null )
-                {
-                    cleaner.delete( directoryItem, null, followSymLinks, failOnError, retryOnError );
+        try {
+            for (File directoryItem : getDirectories()) {
+                if (directoryItem != null) {
+                    cleaner.delete(directoryItem, null, followSymLinks, failOnError, retryOnError);
                 }
             }
 
-            if ( filesets != null )
-            {
-                for ( Fileset fileset : filesets )
-                {
-                    if ( fileset.getDirectory() == null )
-                    {
-                        throw new MojoExecutionException( "Missing base directory for " + fileset );
+            if (filesets != null) {
+                for (Fileset fileset : filesets) {
+                    if (fileset.getDirectory() == null) {
+                        throw new MojoExecutionException("Missing base directory for " + fileset);
                     }
-                    GlobSelector selector = new GlobSelector( fileset.getIncludes(), fileset.getExcludes(),
-                                                              fileset.isUseDefaultExcludes() );
-                    cleaner.delete( fileset.getDirectory(), selector, fileset.isFollowSymlinks(), failOnError,
-                                    retryOnError );
+                    GlobSelector selector = new GlobSelector(
+                            fileset.getIncludes(), fileset.getExcludes(), fileset.isUseDefaultExcludes());
+                    cleaner.delete(
+                            fileset.getDirectory(), selector, fileset.isFollowSymlinks(), failOnError, retryOnError);
                 }
             }
-        }
-        catch ( IOException e )
-        {
-            throw new MojoExecutionException( "Failed to clean project: " + e.getMessage(), e );
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to clean project: " + e.getMessage(), e);
         }
     }
 
@@ -294,9 +292,8 @@ public class CleanMojo
      *
      * @return <code>true</code> if verbose output is enabled, <code>false</code> otherwise.
      */
-    private boolean isVerbose()
-    {
-        return ( verbose != null ) ? verbose : getLog().isDebugEnabled();
+    private boolean isVerbose() {
+        return (verbose != null) ? verbose : getLog().isDebugEnabled();
     }
 
     /**
@@ -304,18 +301,13 @@ public class CleanMojo
      *
      * @return The directories to clean or an empty array if none, never <code>null</code>.
      */
-    private File[] getDirectories()
-    {
+    private File[] getDirectories() {
         File[] directories;
-        if ( excludeDefaultDirectories )
-        {
+        if (excludeDefaultDirectories) {
             directories = new File[0];
-        }
-        else
-        {
-            directories = new File[] { directory, outputDirectory, testOutputDirectory, reportDirectory };
+        } else {
+            directories = new File[] {directory, outputDirectory, testOutputDirectory, reportDirectory};
         }
         return directories;
     }
-
 }
