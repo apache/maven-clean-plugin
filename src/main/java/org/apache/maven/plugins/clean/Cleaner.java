@@ -441,7 +441,9 @@ class Cleaner {
                 }
                 if (!FAST_MODE_DEFER.equals(fastMode)) {
                     try {
-                        cleaner.logInfo.log("Waiting for background file deletion");
+                        if (cleaner.logInfo != null) {
+                            cleaner.logInfo.log("Waiting for background file deletion");
+                        }
                         while (status != STOPPED) {
                             wait();
                         }
