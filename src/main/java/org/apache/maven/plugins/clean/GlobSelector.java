@@ -20,6 +20,7 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.util.Arrays;
+
 import org.apache.maven.shared.utils.io.DirectoryScanner;
 import org.apache.maven.shared.utils.io.SelectorUtils;
 
