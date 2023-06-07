@@ -18,14 +18,15 @@
  */
 package org.apache.maven.plugins.clean;
 
-import static org.apache.commons.io.FileUtils.copyDirectory;
-
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.testing.AbstractMojoTestCase;
+
+import static org.apache.commons.io.FileUtils.copyDirectory;
 
 /**
  * Test the clean mojo.

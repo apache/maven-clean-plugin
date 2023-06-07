@@ -20,6 +20,7 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;

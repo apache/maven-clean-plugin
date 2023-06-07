@@ -19,6 +19,7 @@
 package org.apache.maven.plugins.clean;
 
 import java.io.File;
+
 import org.codehaus.plexus.util.cli.CommandLineUtils;
 import org.codehaus.plexus.util.cli.Commandline;
 
