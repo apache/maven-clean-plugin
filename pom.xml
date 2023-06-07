@@ -23,8 +23,8 @@ under the License.
   <parent>
     <groupId>org.apache.maven.plugins</groupId>
     <artifactId>maven-plugins</artifactId>
-    <version>38</version>
-    <relativePath/>
+    <version>39</version>
+    <relativePath />
   </parent>
 
   <artifactId>maven-clean-plugin</artifactId>
@@ -62,8 +62,6 @@ under the License.
 
   <properties>
     <mavenVersion>3.2.5</mavenVersion>
-    <javaVersion>8</javaVersion>
-    <mavenPluginToolsVersion>3.6.4</mavenPluginToolsVersion>
     <project.build.outputTimestamp>2022-04-01T21:20:42Z</project.build.outputTimestamp>
   </properties>
 
