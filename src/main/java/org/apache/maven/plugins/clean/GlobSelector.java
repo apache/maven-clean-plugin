@@ -21,8 +21,8 @@ package org.apache.maven.plugins.clean;
 import java.io.File;
 import java.util.Arrays;
 
-import org.apache.maven.shared.utils.io.DirectoryScanner;
-import org.apache.maven.shared.utils.io.SelectorUtils;
+import org.codehaus.plexus.util.DirectoryScanner;
+import org.codehaus.plexus.util.SelectorUtils;
 
 /**
  * Selects paths based on Ant-like glob patterns.

@@ -34,7 +34,7 @@ import java.util.Deque;
 import org.apache.maven.execution.ExecutionListener;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.shared.utils.Os;
+import org.codehaus.plexus.util.Os;
 import org.eclipse.aether.SessionData;
 
 import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_BACKGROUND;
