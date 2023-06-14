@@ -24,8 +24,10 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -215,9 +217,8 @@ class Cleaner {
 
         if (isDirectory) {
             if (selector == null || selector.couldHoldSelected(pathname)) {
-                final boolean isSymlink = Files.isSymbolicLink(file.toPath());
-                File canonical = followSymlinks ? file : file.getCanonicalFile();
-                if (followSymlinks || !isSymlink) {
+                if (followSymlinks || !isSymbolicLink(file.toPath())) {
+                    File canonical = followSymlinks ? file : file.getCanonicalFile();
                     String[] filenames = canonical.list();
                     if (filenames != null) {
                         String prefix = pathname.length() > 0 ? pathname + File.separatorChar : "";
@@ -252,6 +253,13 @@ class Cleaner {
         }
 
         return result;
+    }
+
+    private boolean isSymbolicLink(Path path) throws IOException {
+        BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        return attrs.isSymbolicLink()
+                // MCLEAN-93: NTFS junctions have isDirectory() and isOther() attributes set
+                || (attrs.isDirectory() && attrs.isOther());
     }
 
     /**
