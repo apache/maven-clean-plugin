@@ -258,8 +258,17 @@ public class CleanMojo extends AbstractMojo {
                     if (fileset.getDirectory() == null) {
                         throw new MojoExecutionException("Missing base directory for " + fileset);
                     }
-                    GlobSelector selector = new GlobSelector(
-                            fileset.getIncludes(), fileset.getExcludes(), fileset.isUseDefaultExcludes());
+                    final String[] includes = fileset.getIncludes();
+                    final String[] excludes = fileset.getExcludes();
+                    final boolean useDefaultExcludes = fileset.isUseDefaultExcludes();
+                    final GlobSelector selector;
+                    if ((includes != null && includes.length != 0)
+                            || (excludes != null && excludes.length != 0)
+                            || useDefaultExcludes) {
+                        selector = new GlobSelector(includes, excludes, useDefaultExcludes);
+                    } else {
+                        selector = null;
+                    }
                     cleaner.delete(
                             fileset.getDirectory(), selector, fileset.isFollowSymlinks(), failOnError, retryOnError);
                 }
