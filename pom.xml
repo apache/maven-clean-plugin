@@ -77,12 +77,6 @@ under the License.
       <artifactId>plexus-utils</artifactId>
       <version>4.0.0</version>
     </dependency>
-    <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-xml</artifactId>
-      <version>4.0.0</version>
-      <scope>provided</scope>
-    </dependency>
 
     <!-- dependencies to annotations -->
     <dependency>
@@ -96,6 +90,12 @@ under the License.
       <groupId>org.apache.maven.plugin-testing</groupId>
       <artifactId>maven-plugin-testing-harness</artifactId>
       <version>3.3.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-xml</artifactId>
+      <version>3.0.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
