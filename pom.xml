@@ -95,7 +95,7 @@ under the License.
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-xml</artifactId>
-      <version>3.0.0</version>
+      <version>4.0.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
