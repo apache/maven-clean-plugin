@@ -23,12 +23,12 @@ under the License.
   <parent>
     <groupId>org.apache.maven.plugins</groupId>
     <artifactId>maven-plugins</artifactId>
-    <version>39</version>
+    <version>41</version>
     <relativePath />
   </parent>
 
   <artifactId>maven-clean-plugin</artifactId>
-  <version>3.3.2-SNAPSHOT</version>
+  <version>3.3.3-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
 
   <name>Apache Maven Clean Plugin</name>
@@ -101,7 +101,7 @@ under the License.
     <dependency>
       <groupId>org.apache.maven.plugin-testing</groupId>
       <artifactId>maven-plugin-testing-harness</artifactId>
-      <version>4.0.0-alpha-2-SNAPSHOT</version>
+      <version>4.0.0-alpha-2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -126,6 +126,12 @@ under the License.
       <artifactId>guice</artifactId>
       <version>4.2.0</version>
       <classifier>no_aop</classifier>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.plexus</groupId>
+      <artifactId>plexus-xml</artifactId>
+      <version>3.0.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
