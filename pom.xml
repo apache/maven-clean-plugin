@@ -61,7 +61,7 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>4.0.0-alpha-9</mavenVersion>
+    <mavenVersion>4.0.0-alpha-11-SNAPSHOT</mavenVersion>
     <project.build.outputTimestamp>2023-06-14T18:50:52Z</project.build.outputTimestamp>
     <javaVersion>8</javaVersion>
   </properties>
