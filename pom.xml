@@ -61,7 +61,7 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>3.5.4</mavenVersion>
+    <mavenVersion>3.6.3</mavenVersion>
     <project.build.outputTimestamp>2023-06-14T18:50:52Z</project.build.outputTimestamp>
   </properties>
 
