@@ -23,27 +23,9 @@
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
-          <filesets>
-            <fileset>
-              <directory>${basedir}/target/test-classes/unit/fileset-clean-test/target</directory>
-              <includes>
-                <include>**/file.txt</include>
-                <include>**/test-classes/**</include>
-              </includes>
-              <excludes>
-                <exclude>**/subdir/**</exclude>
-              </excludes>
-            </fileset>
-            <fileset>
-              <directory>${basedir}/target/test-classes/unit/fileset-clean-test/buildOutputDirectory</directory>
-              <includes>
-                <include>**</include>
-              </includes>
-              <excludes>
-                <exclude></exclude>
-              </excludes>
-            </fileset>
-          </filesets>
+          <directory>${project.basedir}/target</directory>
+          <outputDirectory>${project.basedir}/target/classes</outputDirectory>
+          <testOutputDirectory>${project.basedir}/target/test-classes</testOutputDirectory>
           <verbose>true</verbose>
           <failOnError>true</failOnError>
         </configuration>
