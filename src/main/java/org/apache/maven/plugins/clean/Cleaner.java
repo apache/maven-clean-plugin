@@ -56,48 +56,43 @@ class Cleaner {
      */
     private final MavenSession session;
 
-    private final Logger logDebug;
-
-    private final Logger logInfo;
-
-    private final Logger logVerbose;
-
-    private final Logger logWarn;
-
     private final File fastDir;
 
     private final String fastMode;
 
+    private final boolean verbose;
+
+    private Log log;
+
     /**
      * Creates a new cleaner.
-     * @param log The logger to use, may be <code>null</code> to disable logging.
-     * @param verbose Whether to perform verbose logging.
-     * @param fastMode The fast deletion mode
+     *
+     * @param session  The Maven session to be used.
+     * @param log      The logger to use.
+     * @param verbose  Whether to perform verbose logging.
+     * @param fastDir  The explicit configured directory or to be deleted in fast mode.
+     * @param fastMode The fast deletion mode.
      */
     Cleaner(MavenSession session, final Log log, boolean verbose, File fastDir, String fastMode) {
-        logDebug = (log == null || !log.isDebugEnabled()) ? null : log::debug;
-
-        logInfo = (log == null || !log.isInfoEnabled()) ? null : log::info;
-
-        logWarn = (log == null || !log.isWarnEnabled()) ? null : log::warn;
-
-        logVerbose = verbose ? logInfo : logDebug;
-
         this.session = session;
+        // This can't be null as the Cleaner gets it from the CleanMojo which gets it from AbstractMojo class, where it
+        // is never null.
+        this.log = log;
         this.fastDir = fastDir;
         this.fastMode = fastMode;
+        this.verbose = verbose;
     }
 
     /**
      * Deletes the specified directories and its contents.
      *
-     * @param basedir The directory to delete, must not be <code>null</code>. Non-existing directories will be silently
-     *            ignored.
-     * @param selector The selector used to determine what contents to delete, may be <code>null</code> to delete
-     *            everything.
+     * @param basedir        The directory to delete, must not be <code>null</code>. Non-existing directories will be silently
+     *                       ignored.
+     * @param selector       The selector used to determine what contents to delete, may be <code>null</code> to delete
+     *                       everything.
      * @param followSymlinks Whether to follow symlinks.
-     * @param failOnError Whether to abort with an exception in case a selected file/directory could not be deleted.
-     * @param retryOnError Whether to undertake additional delete attempts in case the first attempt failed.
+     * @param failOnError    Whether to abort with an exception in case a selected file/directory could not be deleted.
+     * @param retryOnError   Whether to undertake additional delete attempts in case the first attempt failed.
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
     public void delete(
@@ -105,16 +100,16 @@ class Cleaner {
             throws IOException {
         if (!basedir.isDirectory()) {
             if (!basedir.exists()) {
-                if (logDebug != null) {
-                    logDebug.log("Skipping non-existing directory " + basedir);
+                if (log.isDebugEnabled()) {
+                    log.debug("Skipping non-existing directory " + basedir);
                 }
                 return;
             }
             throw new IOException("Invalid base directory " + basedir);
         }
 
-        if (logInfo != null) {
-            logInfo.log("Deleting " + basedir + (selector != null ? " (" + selector + ")" : ""));
+        if (log.isInfoEnabled()) {
+            log.info("Deleting " + basedir + (selector != null ? " (" + selector + ")" : ""));
         }
 
         File file = followSymlinks ? basedir : basedir.getCanonicalFile();
@@ -148,9 +143,8 @@ class Cleaner {
                     throw e;
                 }
             } catch (IOException e) {
-                if (logDebug != null) {
-                    // TODO: this Logger interface cannot log exceptions and needs refactoring
-                    logDebug.log("Unable to fast delete directory: " + e);
+                if (log.isDebugEnabled()) {
+                    log.debug("Unable to fast delete directory: ", e);
                 }
                 return false;
             }
@@ -161,10 +155,11 @@ class Cleaner {
                 Files.createDirectories(fastDir);
             }
         } catch (IOException e) {
-            if (logDebug != null) {
-                // TODO: this Logger interface cannot log exceptions and needs refactoring
-                logDebug.log("Unable to fast delete directory as the path " + fastDir
-                        + " does not point to a directory or cannot be created: " + e);
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "Unable to fast delete directory as the path " + fastDir
+                                + " does not point to a directory or cannot be created: ",
+                        e);
             }
             return false;
         }
@@ -180,9 +175,8 @@ class Cleaner {
             BackgroundCleaner.delete(this, tmpDir.toFile(), fastMode);
             return true;
         } catch (IOException e) {
-            if (logDebug != null) {
-                // TODO: this Logger interface cannot log exceptions and needs refactoring
-                logDebug.log("Unable to fast delete directory: " + e);
+            if (log.isDebugEnabled()) {
+                log.debug("Unable to fast delete directory: ", e);
             }
             return false;
         }
@@ -191,15 +185,15 @@ class Cleaner {
     /**
      * Deletes the specified file or directory.
      *
-     * @param file The file/directory to delete, must not be <code>null</code>. If <code>followSymlinks</code> is
-     *            <code>false</code>, it is assumed that the parent file is canonical.
-     * @param pathname The relative pathname of the file, using {@link File#separatorChar}, must not be
-     *            <code>null</code>.
-     * @param selector The selector used to determine what contents to delete, may be <code>null</code> to delete
-     *            everything.
+     * @param file           The file/directory to delete, must not be <code>null</code>. If <code>followSymlinks</code> is
+     *                       <code>false</code>, it is assumed that the parent file is canonical.
+     * @param pathname       The relative pathname of the file, using {@link File#separatorChar}, must not be
+     *                       <code>null</code>.
+     * @param selector       The selector used to determine what contents to delete, may be <code>null</code> to delete
+     *                       everything.
      * @param followSymlinks Whether to follow symlinks.
-     * @param failOnError Whether to abort with an exception in case a selected file/directory could not be deleted.
-     * @param retryOnError Whether to undertake additional delete attempts in case the first attempt failed.
+     * @param failOnError    Whether to abort with an exception in case a selected file/directory could not be deleted.
+     * @param retryOnError   Whether to undertake additional delete attempts in case the first attempt failed.
      * @return The result of the cleaning, never <code>null</code>.
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
@@ -229,24 +223,30 @@ class Cleaner {
                                     child, prefix + filename, selector, followSymlinks, failOnError, retryOnError));
                         }
                     }
-                } else if (logDebug != null) {
-                    logDebug.log("Not recursing into symlink " + file);
+                } else if (log.isDebugEnabled()) {
+                    log.debug("Not recursing into symlink " + file);
                 }
-            } else if (logDebug != null) {
-                logDebug.log("Not recursing into directory without included files " + file);
+            } else if (log.isDebugEnabled()) {
+                log.debug("Not recursing into directory without included files " + file);
             }
         }
 
         if (!result.excluded && (selector == null || selector.isSelected(pathname))) {
-            if (logVerbose != null) {
-                if (isDirectory) {
-                    logVerbose.log("Deleting directory " + file);
-                } else if (file.exists()) {
-                    logVerbose.log("Deleting file " + file);
-                } else {
-                    logVerbose.log("Deleting dangling symlink " + file);
-                }
+            String logmessage;
+            if (isDirectory) {
+                logmessage = "Deleting directory " + file;
+            } else if (file.exists()) {
+                logmessage = "Deleting file " + file;
+            } else {
+                logmessage = "Deleting dangling symlink " + file;
             }
+
+            if (verbose && log.isInfoEnabled()) {
+                log.info(logmessage);
+            } else if (log.isDebugEnabled()) {
+                log.debug(logmessage);
+            }
+
             result.failures += delete(file, failOnError, retryOnError);
         } else {
             result.excluded = true;
@@ -266,8 +266,8 @@ class Cleaner {
      * Deletes the specified file, directory. If the path denotes a symlink, only the link is removed, its target is
      * left untouched.
      *
-     * @param file The file/directory to delete, must not be <code>null</code>.
-     * @param failOnError Whether to abort with an exception in case the file/directory could not be deleted.
+     * @param file         The file/directory to delete, must not be <code>null</code>.
+     * @param failOnError  Whether to abort with an exception in case the file/directory could not be deleted.
      * @param retryOnError Whether to undertake additional delete attempts in case the first attempt failed.
      * @return <code>0</code> if the file was deleted, <code>1</code> otherwise.
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
@@ -299,8 +299,8 @@ class Cleaner {
                 if (failOnError) {
                     throw new IOException("Failed to delete " + file);
                 } else {
-                    if (logWarn != null) {
-                        logWarn.log("Failed to delete " + file);
+                    if (log.isWarnEnabled()) {
+                        log.warn("Failed to delete " + file);
                     }
                     return 1;
                 }
@@ -322,26 +322,23 @@ class Cleaner {
         }
     }
 
-    private interface Logger {
-
-        void log(CharSequence message);
-    }
-
     private static class BackgroundCleaner extends Thread {
-
-        private static BackgroundCleaner instance;
-
-        private final Deque<File> filesToDelete = new ArrayDeque<>();
-
-        private final Cleaner cleaner;
-
-        private final String fastMode;
 
         private static final int NEW = 0;
         private static final int RUNNING = 1;
         private static final int STOPPED = 2;
-
+        private static BackgroundCleaner instance;
+        private final Deque<File> filesToDelete = new ArrayDeque<>();
+        private final Cleaner cleaner;
+        private final String fastMode;
         private int status = NEW;
+
+        private BackgroundCleaner(Cleaner cleaner, File dir, String fastMode) {
+            super("mvn-background-cleaner");
+            this.cleaner = cleaner;
+            this.fastMode = fastMode;
+            init(cleaner.fastDir, dir);
+        }
 
         public static void delete(Cleaner cleaner, File dir, String fastMode) {
             synchronized (BackgroundCleaner.class) {
@@ -357,13 +354,6 @@ class Cleaner {
                     instance.doSessionEnd();
                 }
             }
-        }
-
-        private BackgroundCleaner(Cleaner cleaner, File dir, String fastMode) {
-            super("mvn-background-cleaner");
-            this.cleaner = cleaner;
-            this.fastMode = fastMode;
-            init(cleaner.fastDir, dir);
         }
 
         public void run() {
@@ -450,8 +440,8 @@ class Cleaner {
                 }
                 if (!FAST_MODE_DEFER.equals(fastMode)) {
                     try {
-                        if (cleaner.logInfo != null) {
-                            cleaner.logInfo.log("Waiting for background file deletion");
+                        if (cleaner.log.isInfoEnabled()) {
+                            cleaner.log.info("Waiting for background file deletion");
                         }
                         while (status != STOPPED) {
                             wait();
