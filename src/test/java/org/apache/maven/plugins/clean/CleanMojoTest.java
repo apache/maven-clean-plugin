@@ -38,6 +38,7 @@ import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.plugin.testing.junit5.InjectMojo;
 import org.apache.maven.plugin.testing.junit5.MojoTest;
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
@@ -219,6 +220,7 @@ public class CleanMojoTest {
 
     /**
      * Test the followLink option with windows junctions
+     *
      * @throws Exception
      */
     @Test
@@ -241,6 +243,7 @@ public class CleanMojoTest {
 
     /**
      * Test the followLink option with sym link
+     *
      * @throws Exception
      */
     @Test
@@ -255,13 +258,9 @@ public class CleanMojoTest {
         });
     }
 
-    @FunctionalInterface
-    interface LinkCreator {
-        void createLink(Path link, Path target) throws Exception;
-    }
-
     private void testSymlink(LinkCreator linkCreator) throws Exception {
-        Cleaner cleaner = new Cleaner(null, null, false, null, null);
+        // We use the SystemStreamLog() as the AbstractMojo class, because from there the Log is always provided
+        Cleaner cleaner = new Cleaner(null, new SystemStreamLog(), false, null, null);
         Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
         Path dirWithLnk = testDir.resolve("dir");
         Path orgDir = testDir.resolve("org-dir");
@@ -327,5 +326,10 @@ public class CleanMojoTest {
     private boolean checkEmpty(String dir) {
         File[] files = new File(dir).listFiles();
         return files == null || files.length == 0;
+    }
+
+    @FunctionalInterface
+    interface LinkCreator {
+        void createLink(Path link, Path target) throws Exception;
     }
 }

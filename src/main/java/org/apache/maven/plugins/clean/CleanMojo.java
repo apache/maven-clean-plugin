@@ -186,8 +186,8 @@ public class CleanMojo extends AbstractMojo {
      * should usually reside on the same volume. The exact conditions are system dependant though, but if an atomic
      * move is not supported, the standard deletion mechanism will be used.
      *
-     * @since 3.2
      * @see #fast
+     * @since 3.2
      */
     @Parameter(property = "maven.clean.fastDir")
     private File fastDir;
@@ -199,8 +199,8 @@ public class CleanMojo extends AbstractMojo {
      * the actual file deletion should be started in the background when the session ends (this should only be used
      * when maven is embedded in a long running process).
      *
-     * @since 3.2
      * @see #fast
+     * @since 3.2
      */
     @Parameter(property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND)
     private String fastMode;
