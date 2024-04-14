@@ -28,7 +28,7 @@ under the License.
   </parent>
 
   <artifactId>maven-clean-plugin</artifactId>
-  <version>3.3.3-SNAPSHOT</version>
+  <version>3.4.0-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
 
   <name>Apache Maven Clean Plugin</name>
@@ -61,7 +61,9 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>3.2.5</mavenVersion>
+    <mavenVersion>3.6.3</mavenVersion>
+    <!-- TODO remove with next parent -->
+    <version.maven-plugin-tools>3.12.0</version.maven-plugin-tools>
     <project.build.outputTimestamp>2023-10-23T06:00:49Z</project.build.outputTimestamp>
   </properties>
 
@@ -75,7 +77,6 @@ under the License.
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-utils</artifactId>
-      <version>4.0.0</version>
     </dependency>
 
     <!-- dependencies to annotations -->
@@ -95,7 +96,6 @@ under the License.
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-xml</artifactId>
-      <version>3.0.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
