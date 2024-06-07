@@ -23,7 +23,7 @@ under the License.
   <parent>
     <groupId>org.apache.maven.plugins</groupId>
     <artifactId>maven-plugins</artifactId>
-    <version>41</version>
+    <version>42</version>
     <relativePath />
   </parent>
 
@@ -62,8 +62,6 @@ under the License.
 
   <properties>
     <mavenVersion>3.6.3</mavenVersion>
-    <!-- TODO remove with next parent -->
-    <version.maven-plugin-tools>3.12.0</version.maven-plugin-tools>
     <project.build.outputTimestamp>2023-10-23T06:00:49Z</project.build.outputTimestamp>
   </properties>
 
@@ -108,7 +106,6 @@ under the License.
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
-      <version>5.9.3</version>
       <scope>test</scope>
     </dependency>
     <dependency>
