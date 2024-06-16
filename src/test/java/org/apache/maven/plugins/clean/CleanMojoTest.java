@@ -29,20 +29,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
-import org.apache.maven.execution.DefaultMavenExecutionRequest;
-import org.apache.maven.execution.DefaultMavenExecutionResult;
-import org.apache.maven.execution.MavenExecutionRequest;
-import org.apache.maven.execution.MavenExecutionResult;
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.MojoExecution;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.apache.maven.plugin.testing.junit5.InjectMojo;
 import org.apache.maven.plugin.testing.junit5.MojoTest;
-import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
-import org.codehaus.plexus.PlexusContainer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -63,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * @author <a href="mailto:vincent.siveton@gmail.com">Vincent Siveton</a>
  */
 @MojoTest
-public class CleanMojoTest {
+class CleanMojoTest {
     /**
      * Tests the simple removal of directories
      *
@@ -71,7 +61,7 @@ public class CleanMojoTest {
      */
     @Test
     @InjectMojo(goal = "clean", pom = "classpath:/unit/basic-clean-test/plugin-pom.xml")
-    public void testBasicClean(CleanMojo mojo) throws Exception {
+    void testBasicClean(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertFalse(
@@ -92,7 +82,7 @@ public class CleanMojoTest {
      */
     @Test
     @InjectMojo(goal = "clean", pom = "classpath:/unit/nested-clean-test/plugin-pom.xml")
-    public void testCleanNestedStructure(CleanMojo mojo) throws Exception {
+    void testCleanNestedStructure(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/nested-clean-test/target"));
@@ -108,7 +98,7 @@ public class CleanMojoTest {
      */
     @Test
     @InjectMojo(goal = "clean", pom = "classpath:/unit/empty-clean-test/plugin-pom.xml")
-    public void testCleanEmptyDirectories(CleanMojo mojo) throws Exception {
+    void testCleanEmptyDirectories(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/empty-clean-test/testDirectoryStructure"));
@@ -127,7 +117,7 @@ public class CleanMojoTest {
      */
     @Test
     @InjectMojo(goal = "clean", pom = "classpath:/unit/fileset-clean-test/plugin-pom.xml")
-    public void testFilesetsClean(CleanMojo mojo) throws Exception {
+    void testFilesetsClean(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         // fileset 1
@@ -154,7 +144,7 @@ public class CleanMojoTest {
      */
     @Test
     @InjectMojo(goal = "clean", pom = "classpath:/unit/invalid-directory-test/plugin-pom.xml")
-    public void testCleanInvalidDirectory(CleanMojo mojo) throws Exception {
+    void testCleanInvalidDirectory(CleanMojo mojo) throws Exception {
         assertThrows(MojoExecutionException.class, mojo::execute);
     }
 
@@ -165,7 +155,7 @@ public class CleanMojoTest {
      */
     @Test
     @InjectMojo(goal = "clean", pom = "classpath:/unit/missing-directory-test/plugin-pom.xml")
-    public void testMissingDirectory(CleanMojo mojo) throws Exception {
+    void testMissingDirectory(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/missing-directory-test/does-not-exist"));
@@ -182,7 +172,7 @@ public class CleanMojoTest {
     @Test
     @EnabledOnOs(OS.WINDOWS)
     @InjectMojo(goal = "clean", pom = "classpath:/unit/locked-file-test/plugin-pom.xml")
-    public void testCleanLockedFile(CleanMojo mojo) throws Exception {
+    void testCleanLockedFile(CleanMojo mojo) throws Exception {
         File f = new File(getBasedir(), "target/test-classes/unit/locked-file-test/buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
@@ -204,7 +194,7 @@ public class CleanMojoTest {
     @Test
     @EnabledOnOs(OS.WINDOWS)
     @InjectMojo(goal = "clean", pom = "classpath:/unit/locked-file-test/plugin-pom.xml")
-    public void testCleanLockedFileWithNoError(CleanMojo mojo) throws Exception {
+    void testCleanLockedFileWithNoError(CleanMojo mojo) throws Exception {
         setVariableValueToObject(mojo, "failOnError", Boolean.FALSE);
         assertNotNull(mojo);
 
@@ -225,7 +215,7 @@ public class CleanMojoTest {
      */
     @Test
     @EnabledOnOs(OS.WINDOWS)
-    public void testFollowLinksWithWindowsJunction() throws Exception {
+    void testFollowLinksWithWindowsJunction() throws Exception {
         testSymlink((link, target) -> {
             Process process = new ProcessBuilder()
                     .directory(link.getParent().toFile())
@@ -248,7 +238,7 @@ public class CleanMojoTest {
      */
     @Test
     @DisabledOnOs(OS.WINDOWS)
-    public void testFollowLinksWithSymLinkOnPosix() throws Exception {
+    void testFollowLinksWithSymLinkOnPosix() throws Exception {
         testSymlink((link, target) -> {
             try {
                 Files.createSymbolicLink(link, target);
@@ -292,23 +282,6 @@ public class CleanMojoTest {
         assertFalse(Files.exists(jctDir));
         assertTrue(Files.exists(orgDir));
         assertFalse(Files.exists(dirWithLnk));
-    }
-
-    @Provides
-    @Singleton
-    @SuppressWarnings("unused")
-    private MavenSession createSession(PlexusContainer container) {
-        MavenExecutionRequest request = new DefaultMavenExecutionRequest();
-        MavenExecutionResult result = new DefaultMavenExecutionResult();
-        MavenSession session = new MavenSession(container, MavenRepositorySystemUtils.newSession(), request, result);
-        return session;
-    }
-
-    @Provides
-    @Singleton
-    @SuppressWarnings("unused")
-    private MojoExecution createMojoExecution() {
-        return new MojoExecution(null);
     }
 
     /**
