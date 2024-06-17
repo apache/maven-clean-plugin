@@ -18,14 +18,16 @@
  */
 package org.apache.maven.plugins.clean;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.api.Session;
+import org.apache.maven.api.di.Inject;
+import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.plugin.MojoException;
+import org.apache.maven.api.plugin.annotations.Mojo;
+import org.apache.maven.api.plugin.annotations.Parameter;
 
 /**
  * Goal which cleans the build.
@@ -43,8 +45,8 @@ import org.apache.maven.plugins.annotations.Parameter;
  * @see org.apache.maven.plugins.clean.Fileset
  * @since 2.0
  */
-@Mojo(name = "clean", threadSafe = true)
-public class CleanMojo extends AbstractMojo {
+@Mojo(name = "clean")
+public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
 
     public static final String FAST_MODE_BACKGROUND = "background";
 
@@ -52,23 +54,26 @@ public class CleanMojo extends AbstractMojo {
 
     public static final String FAST_MODE_DEFER = "defer";
 
+    @Inject
+    private Log logger;
+
     /**
      * This is where build results go.
      */
     @Parameter(defaultValue = "${project.build.directory}", readonly = true, required = true)
-    private File directory;
+    private Path directory;
 
     /**
      * This is where compiled classes go.
      */
     @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
-    private File outputDirectory;
+    private Path outputDirectory;
 
     /**
      * This is where compiled test classes go.
      */
     @Parameter(defaultValue = "${project.build.testOutputDirectory}", readonly = true, required = true)
-    private File testOutputDirectory;
+    private Path testOutputDirectory;
 
     /**
      * This is where the site plugin generates its pages.
@@ -76,7 +81,7 @@ public class CleanMojo extends AbstractMojo {
      * @since 2.1.1
      */
     @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
-    private File reportDirectory;
+    private Path reportDirectory;
 
     /**
      * Sets whether the plugin runs in verbose mode. As of plugin version 2.3, the default value is derived from Maven's
@@ -186,11 +191,11 @@ public class CleanMojo extends AbstractMojo {
      * should usually reside on the same volume. The exact conditions are system dependant though, but if an atomic
      * move is not supported, the standard deletion mechanism will be used.
      *
-     * @see #fast
      * @since 3.2
+     * @see #fast
      */
     @Parameter(property = "maven.clean.fastDir")
-    private File fastDir;
+    private Path fastDir;
 
     /**
      * Mode to use when using fast clean.  Values are: <code>background</code> to start deletion immediately and
@@ -199,35 +204,35 @@ public class CleanMojo extends AbstractMojo {
      * the actual file deletion should be started in the background when the session ends (this should only be used
      * when maven is embedded in a long running process).
      *
-     * @see #fast
      * @since 3.2
+     * @see #fast
      */
     @Parameter(property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND)
     private String fastMode;
 
-    @Parameter(defaultValue = "${session}", readonly = true)
-    private MavenSession session;
+    @Inject
+    private Session session;
 
     /**
      * Deletes file-sets in the following project build directory order: (source) directory, output directory, test
      * directory, report directory, and then the additional file-sets.
      *
-     * @throws MojoExecutionException When a directory failed to get deleted.
-     * @see org.apache.maven.plugin.Mojo#execute()
+     * @throws MojoException When a directory failed to get deleted.
+     * @see org.apache.maven.api.plugin.Mojo#execute()
      */
-    public void execute() throws MojoExecutionException {
+    public void execute() {
         if (skip) {
             getLog().info("Clean is skipped.");
             return;
         }
 
         String multiModuleProjectDirectory =
-                session != null ? session.getSystemProperties().getProperty("maven.multiModuleProjectDirectory") : null;
-        File fastDir;
+                session != null ? session.getSystemProperties().get("maven.multiModuleProjectDirectory") : null;
+        Path fastDir;
         if (fast && this.fastDir != null) {
             fastDir = this.fastDir;
         } else if (fast && multiModuleProjectDirectory != null) {
-            fastDir = new File(multiModuleProjectDirectory, "target/.clean");
+            fastDir = Paths.get(multiModuleProjectDirectory, "target/.clean");
         } else {
             fastDir = null;
             if (fast) {
@@ -247,7 +252,7 @@ public class CleanMojo extends AbstractMojo {
         Cleaner cleaner = new Cleaner(session, getLog(), isVerbose(), fastDir, fastMode);
 
         try {
-            for (File directoryItem : getDirectories()) {
+            for (Path directoryItem : getDirectories()) {
                 if (directoryItem != null) {
                     cleaner.delete(directoryItem, null, followSymLinks, failOnError, retryOnError);
                 }
@@ -256,7 +261,7 @@ public class CleanMojo extends AbstractMojo {
             if (filesets != null) {
                 for (Fileset fileset : filesets) {
                     if (fileset.getDirectory() == null) {
-                        throw new MojoExecutionException("Missing base directory for " + fileset);
+                        throw new MojoException("Missing base directory for " + fileset);
                     }
                     final String[] includes = fileset.getIncludes();
                     final String[] excludes = fileset.getExcludes();
@@ -273,8 +278,9 @@ public class CleanMojo extends AbstractMojo {
                             fileset.getDirectory(), selector, fileset.isFollowSymlinks(), failOnError, retryOnError);
                 }
             }
+
         } catch (IOException e) {
-            throw new MojoExecutionException("Failed to clean project: " + e.getMessage(), e);
+            throw new MojoException("Failed to clean project: " + e.getMessage(), e);
         }
     }
 
@@ -292,13 +298,17 @@ public class CleanMojo extends AbstractMojo {
      *
      * @return The directories to clean or an empty array if none, never <code>null</code>.
      */
-    private File[] getDirectories() {
-        File[] directories;
+    private Path[] getDirectories() {
+        Path[] directories;
         if (excludeDefaultDirectories) {
-            directories = new File[0];
+            directories = new Path[0];
         } else {
-            directories = new File[] {directory, outputDirectory, testOutputDirectory, reportDirectory};
+            directories = new Path[] {directory, outputDirectory, testOutputDirectory, reportDirectory};
         }
         return directories;
+    }
+
+    private Log getLog() {
+        return logger;
     }
 }

@@ -23,7 +23,7 @@
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
-          <directory>${basedir}/target/test-classes/unit/invalid-directory-test/this-is-a-file</directory>
+          <directory>${project.basedir}/does-not-exist</directory>
           <verbose>true</verbose>
           <failOnError>true</failOnError>
         </configuration>

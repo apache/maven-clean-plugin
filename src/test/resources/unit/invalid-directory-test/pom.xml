@@ -23,7 +23,7 @@
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
-          <directory>${basedir}/target/test-classes/unit/locked-file-test/buildDirectory</directory>
+          <directory>${project.basedir}/this-is-a-file</directory>
           <verbose>true</verbose>
           <failOnError>true</failOnError>
         </configuration>

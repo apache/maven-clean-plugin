@@ -29,17 +29,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.logging.SystemStreamLog;
-import org.apache.maven.plugin.testing.junit5.InjectMojo;
-import org.apache.maven.plugin.testing.junit5.MojoTest;
+import org.apache.maven.api.plugin.MojoException;
+import org.apache.maven.api.plugin.testing.Basedir;
+import org.apache.maven.api.plugin.testing.InjectMojo;
+import org.apache.maven.api.plugin.testing.MojoTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import static org.apache.maven.plugin.testing.junit5.MojoExtension.setVariableValueToObject;
-import static org.codehaus.plexus.testing.PlexusExtension.getBasedir;
+import static org.apache.maven.api.plugin.testing.MojoExtension.getBasedir;
+import static org.apache.maven.api.plugin.testing.MojoExtension.setVariableValueToObject;
 import static org.codehaus.plexus.util.IOUtil.copy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -49,30 +49,25 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test the clean mojo.
- *
- * @author <a href="mailto:vincent.siveton@gmail.com">Vincent Siveton</a>
  */
 @MojoTest
-class CleanMojoTest {
+public class CleanMojoTest {
+    private static final String LOCAL_REPO = "target/local-repo/";
+
     /**
      * Tests the simple removal of directories
      *
      * @throws Exception in case of an error.
      */
     @Test
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/basic-clean-test/plugin-pom.xml")
-    void testBasicClean(CleanMojo mojo) throws Exception {
+    @Basedir("${basedir}/target/test-classes/unit/basic-clean-test")
+    @InjectMojo(goal = "clean")
+    public void testBasicClean(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertFalse(
-                checkExists(getBasedir() + "/target/test-classes/unit/" + "basic-clean-test/buildDirectory"),
-                "Directory exists");
-        assertFalse(
-                checkExists(getBasedir() + "/target/test-classes/unit/basic-clean-test/" + "buildOutputDirectory"),
-                "Directory exists");
-        assertFalse(
-                checkExists(getBasedir() + "/target/test-classes/unit/basic-clean-test/" + "buildTestDirectory"),
-                "Directory exists");
+        assertFalse(checkExists(getBasedir() + "/buildDirectory"), "Directory exists");
+        assertFalse(checkExists(getBasedir() + "/buildOutputDirectory"), "Directory exists");
+        assertFalse(checkExists(getBasedir() + "/buildTestDirectory"), "Directory exists");
     }
 
     /**
@@ -81,13 +76,14 @@ class CleanMojoTest {
      * @throws Exception in case of an error.
      */
     @Test
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/nested-clean-test/plugin-pom.xml")
-    void testCleanNestedStructure(CleanMojo mojo) throws Exception {
+    @Basedir("${basedir}/target/test-classes/unit/nested-clean-test")
+    @InjectMojo(goal = "clean")
+    public void testCleanNestedStructure(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/nested-clean-test/target"));
-        assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/nested-clean-test/target/classes"));
-        assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/nested-clean-test/target/test-classes"));
+        assertFalse(checkExists(getBasedir() + "/target"));
+        assertFalse(checkExists(getBasedir() + "/target/classes"));
+        assertFalse(checkExists(getBasedir() + "/target/test-classes"));
     }
 
     /**
@@ -97,17 +93,15 @@ class CleanMojoTest {
      * @throws Exception in case of an error.
      */
     @Test
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/empty-clean-test/plugin-pom.xml")
-    void testCleanEmptyDirectories(CleanMojo mojo) throws Exception {
+    @Basedir("${basedir}/target/test-classes/unit/empty-clean-test")
+    @InjectMojo(goal = "clean")
+    public void testCleanEmptyDirectories(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/empty-clean-test/testDirectoryStructure"));
-        assertTrue(checkExists(
-                getBasedir() + "/target/test-classes/unit/empty-clean-test/" + "testDirectoryStructure/file.txt"));
-        assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/empty-clean-test/"
-                + "testDirectoryStructure/outputDirectory"));
-        assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/empty-clean-test/"
-                + "testDirectoryStructure/outputDirectory/file.txt"));
+        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure"));
+        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure/file.txt"));
+        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure/outputDirectory"));
+        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure/outputDirectory/file.txt"));
     }
 
     /**
@@ -116,25 +110,24 @@ class CleanMojoTest {
      * @throws Exception in case of an error.
      */
     @Test
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/fileset-clean-test/plugin-pom.xml")
-    void testFilesetsClean(CleanMojo mojo) throws Exception {
+    @Basedir("${basedir}/target/test-classes/unit/fileset-clean-test")
+    @InjectMojo(goal = "clean")
+    public void testFilesetsClean(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         // fileset 1
-        assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target"));
-        assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target/classes"));
-        assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target/test-classes"));
-        assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target/subdir"));
-        assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target/classes/file.txt"));
-        assertTrue(checkEmpty(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target/classes"));
-        assertFalse(checkEmpty(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target/subdir"));
-        assertTrue(checkExists(getBasedir() + "/target/test-classes/unit/fileset-clean-test/target/subdir/file.txt"));
+        assertTrue(checkExists(getBasedir() + "/target"));
+        assertTrue(checkExists(getBasedir() + "/target/classes"));
+        assertFalse(checkExists(getBasedir() + "/target/test-classes"));
+        assertTrue(checkExists(getBasedir() + "/target/subdir"));
+        assertFalse(checkExists(getBasedir() + "/target/classes/file.txt"));
+        assertTrue(checkEmpty(getBasedir() + "/target/classes"));
+        assertFalse(checkEmpty(getBasedir() + "/target/subdir"));
+        assertTrue(checkExists(getBasedir() + "/target/subdir/file.txt"));
 
         // fileset 2
-        assertTrue(
-                checkExists(getBasedir() + "/target/test-classes/unit/fileset-clean-test/" + "buildOutputDirectory"));
-        assertFalse(checkExists(
-                getBasedir() + "/target/test-classes/unit/fileset-clean-test/" + "buildOutputDirectory/file.txt"));
+        assertTrue(checkExists(getBasedir() + "/" + "buildOutputDirectory"));
+        assertFalse(checkExists(getBasedir() + "/" + "buildOutputDirectory/file.txt"));
     }
 
     /**
@@ -143,9 +136,10 @@ class CleanMojoTest {
      * @throws Exception in case of an error.
      */
     @Test
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/invalid-directory-test/plugin-pom.xml")
-    void testCleanInvalidDirectory(CleanMojo mojo) throws Exception {
-        assertThrows(MojoExecutionException.class, mojo::execute);
+    @Basedir("${basedir}/target/test-classes/unit/invalid-directory-test")
+    @InjectMojo(goal = "clean")
+    public void testCleanInvalidDirectory(CleanMojo mojo) throws Exception {
+        assertThrows(MojoException.class, mojo::execute, "Should fail to delete a file treated as a directory");
     }
 
     /**
@@ -154,11 +148,12 @@ class CleanMojoTest {
      * @throws Exception in case of an error.
      */
     @Test
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/missing-directory-test/plugin-pom.xml")
-    void testMissingDirectory(CleanMojo mojo) throws Exception {
+    @Basedir("${basedir}/target/test-classes/unit/missing-directory-test")
+    @InjectMojo(goal = "clean")
+    public void testMissingDirectory(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertFalse(checkExists(getBasedir() + "/target/test-classes/unit/missing-directory-test/does-not-exist"));
+        assertFalse(checkExists(getBasedir() + "/does-not-exist"));
     }
 
     /**
@@ -171,14 +166,15 @@ class CleanMojoTest {
      */
     @Test
     @EnabledOnOs(OS.WINDOWS)
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/locked-file-test/plugin-pom.xml")
-    void testCleanLockedFile(CleanMojo mojo) throws Exception {
-        File f = new File(getBasedir(), "target/test-classes/unit/locked-file-test/buildDirectory/file.txt");
+    @Basedir("${basedir}/target/test-classes/unit/locked-file-test")
+    @InjectMojo(goal = "clean")
+    public void testCleanLockedFile(CleanMojo mojo) throws Exception {
+        File f = new File(getBasedir(), "buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
             mojo.execute();
             fail("Should fail to delete a file that is locked");
-        } catch (MojoExecutionException expected) {
+        } catch (MojoException expected) {
             assertTrue(true);
         }
     }
@@ -193,29 +189,29 @@ class CleanMojoTest {
      */
     @Test
     @EnabledOnOs(OS.WINDOWS)
-    @InjectMojo(goal = "clean", pom = "classpath:/unit/locked-file-test/plugin-pom.xml")
-    void testCleanLockedFileWithNoError(CleanMojo mojo) throws Exception {
+    @Basedir("${basedir}/target/test-classes/unit/locked-file-test")
+    @InjectMojo(goal = "clean")
+    public void testCleanLockedFileWithNoError(CleanMojo mojo) throws Exception {
         setVariableValueToObject(mojo, "failOnError", Boolean.FALSE);
         assertNotNull(mojo);
 
-        File f = new File(getBasedir(), "target/test-classes/unit/locked-file-test/buildDirectory/file.txt");
+        File f = new File(getBasedir(), "buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
             mojo.execute();
             assertTrue(true);
-        } catch (MojoExecutionException expected) {
+        } catch (MojoException expected) {
             fail("Should display a warning when deleting a file that is locked");
         }
     }
 
     /**
      * Test the followLink option with windows junctions
-     *
      * @throws Exception
      */
     @Test
     @EnabledOnOs(OS.WINDOWS)
-    void testFollowLinksWithWindowsJunction() throws Exception {
+    public void testFollowLinksWithWindowsJunction() throws Exception {
         testSymlink((link, target) -> {
             Process process = new ProcessBuilder()
                     .directory(link.getParent().toFile())
@@ -233,12 +229,11 @@ class CleanMojoTest {
 
     /**
      * Test the followLink option with sym link
-     *
      * @throws Exception
      */
     @Test
     @DisabledOnOs(OS.WINDOWS)
-    void testFollowLinksWithSymLinkOnPosix() throws Exception {
+    public void testFollowLinksWithSymLinkOnPosix() throws Exception {
         testSymlink((link, target) -> {
             try {
                 Files.createSymbolicLink(link, target);
@@ -248,9 +243,13 @@ class CleanMojoTest {
         });
     }
 
+    @FunctionalInterface
+    interface LinkCreator {
+        void createLink(Path link, Path target) throws Exception;
+    }
+
     private void testSymlink(LinkCreator linkCreator) throws Exception {
-        // We use the SystemStreamLog() as the AbstractMojo class, because from there the Log is always provided
-        Cleaner cleaner = new Cleaner(null, new SystemStreamLog(), false, null, null);
+        Cleaner cleaner = new Cleaner(null, null, false, null, null);
         Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
         Path dirWithLnk = testDir.resolve("dir");
         Path orgDir = testDir.resolve("org-dir");
@@ -263,7 +262,7 @@ class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner.delete(dirWithLnk.toFile(), null, false, true, false);
+        cleaner.delete(dirWithLnk, null, false, true, false);
         // verify
         assertTrue(Files.exists(file));
         assertFalse(Files.exists(jctDir));
@@ -276,13 +275,39 @@ class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner.delete(dirWithLnk.toFile(), null, true, true, false);
+        cleaner.delete(dirWithLnk, null, true, true, false);
         // verify
         assertFalse(Files.exists(file));
         assertFalse(Files.exists(jctDir));
         assertTrue(Files.exists(orgDir));
         assertFalse(Files.exists(dirWithLnk));
     }
+
+    //    @Provides
+    //    @Singleton
+    //    private Project createProject() {
+    //        ProjectStub project = new ProjectStub();
+    //        project.setGroupId("myGroupId");
+    //        return project;
+    //    }
+
+    //    @Provides
+    //    @Singleton
+    //    @SuppressWarnings("unused")
+    //    private InternalSession createSession() {
+    //        InternalSession session = SessionStub.getMockSession(LOCAL_REPO);
+    //        Properties props = new Properties();
+    //        props.put("basedir", MojoExtension.getBasedir());
+    //        doReturn(props).when(session).getSystemProperties();
+    //        return session;
+    //    }
+
+    //    @Provides
+    //    @Singleton
+    //    @SuppressWarnings("unused")
+    //    private MojoExecution createMojoExecution() {
+    //        return new MojoExecutionStub("default-clean", "clean");
+    //    }
 
     /**
      * @param dir a dir or a file
@@ -299,10 +324,5 @@ class CleanMojoTest {
     private boolean checkEmpty(String dir) {
         File[] files = new File(dir).listFiles();
         return files == null || files.length == 0;
-    }
-
-    @FunctionalInterface
-    interface LinkCreator {
-        void createLink(Path link, Path target) throws Exception;
     }
 }
