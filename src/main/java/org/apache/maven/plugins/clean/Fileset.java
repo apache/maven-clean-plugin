@@ -18,7 +18,7 @@
  */
 package org.apache.maven.plugins.clean;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
@@ -32,7 +32,7 @@ import java.util.Arrays;
  */
 public class Fileset {
 
-    private File directory;
+    private Path directory;
 
     private String[] includes;
 
@@ -45,7 +45,7 @@ public class Fileset {
     /**
      * @return {@link #directory}
      */
-    public File getDirectory() {
+    public Path getDirectory() {
         return directory;
     }
 

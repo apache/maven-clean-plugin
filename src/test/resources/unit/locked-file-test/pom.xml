@@ -23,7 +23,7 @@
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
-          <directory>${basedir}/target/test-classes/unit/missing-clean-test/does-not-exist</directory>
+          <directory>${project.basedir}/buildDirectory</directory>
           <verbose>true</verbose>
           <failOnError>true</failOnError>
         </configuration>
