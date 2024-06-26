@@ -28,7 +28,7 @@ under the License.
   </parent>
 
   <artifactId>maven-clean-plugin</artifactId>
-  <version>4.0.0-SNAPSHOT</version>
+  <version>4.0.0-beta-1</version>
   <packaging>maven-plugin</packaging>
 
   <name>Apache Maven Clean Plugin</name>
@@ -42,7 +42,7 @@ under the License.
   <scm>
     <connection>scm:git:https://gitbox.apache.org/repos/asf/maven-clean-plugin.git</connection>
     <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/maven-clean-plugin.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>maven-clean-plugin-4.0.0-beta-1</tag>
     <url>https://github.com/apache/maven-clean-plugin/tree/${project.scm.tag}</url>
   </scm>
   <issueManagement>
@@ -69,7 +69,7 @@ under the License.
     <version.maven-invoker-plugin>3.7.0</version.maven-invoker-plugin>
     <version.maven-plugin-testing>4.0.0-beta-1</version.maven-plugin-testing>
     <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
-    <project.build.outputTimestamp>2024-06-16T10:25:11Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>2024-06-26T08:19:11Z</project.build.outputTimestamp>
   </properties>
 
   <dependencyManagement>
