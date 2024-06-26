@@ -67,8 +67,8 @@ under the License.
     <guiceVersion>6.0.0</guiceVersion>
     <slf4jVersion>2.0.13</slf4jVersion>
     <version.maven-invoker-plugin>3.7.0</version.maven-invoker-plugin>
-    <version.maven-plugin-testing>4.0.0-alpha-3-SNAPSHOT</version.maven-plugin-testing>
-    <version.maven-plugin-tools>4.0.0-SNAPSHOT</version.maven-plugin-tools>
+    <version.maven-plugin-testing>4.0.0-beta-1</version.maven-plugin-testing>
+    <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
     <project.build.outputTimestamp>2024-06-16T10:25:11Z</project.build.outputTimestamp>
   </properties>
 
