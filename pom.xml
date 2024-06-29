@@ -28,7 +28,7 @@ under the License.
   </parent>
 
   <artifactId>maven-clean-plugin</artifactId>
-  <version>4.0.0-beta-2-SNAPSHOT</version>
+  <version>3.6.3-beta-2-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
 
   <name>Apache Maven Clean Plugin</name>
@@ -36,7 +36,7 @@ under the License.
   <inceptionYear>2001</inceptionYear>
 
   <prerequisites>
-    <maven>${mavenVersion}</maven>
+    <maven>3.6.3</maven>
   </prerequisites>
 
   <scm>
@@ -61,27 +61,13 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>4.0.0-beta-3</mavenVersion>
-    <javaVersion>17</javaVersion>
-    <guavaVersion>33.2.1-jre</guavaVersion>
-    <guiceVersion>6.0.0</guiceVersion>
-    <slf4jVersion>2.0.13</slf4jVersion>
-    <version.maven-invoker-plugin>3.7.0</version.maven-invoker-plugin>
-    <version.maven-plugin-testing>4.0.0-beta-2-SNAPSHOT</version.maven-plugin-testing>
-    <version.maven-plugin-tools>4.0.0-beta-2-SNAPSHOT</version.maven-plugin-tools>
+    <mavenVersion>3.6.3</mavenVersion>
+    <javaVersion>11</javaVersion>
+    <version.maven-invoker-plugin>3.6.3</version.maven-invoker-plugin>
+    <version.maven-plugin-testing>3.6.3-beta-2-SNAPSHOT</version.maven-plugin-testing>
+    <version.maven-plugin-tools>3.6.3-beta-2-SNAPSHOT</version.maven-plugin-tools>
     <project.build.outputTimestamp>2024-06-26T08:19:25Z</project.build.outputTimestamp>
   </properties>
-
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>com.google.guava</groupId>
-        <artifactId>guava</artifactId>
-        <version>${guavaVersion}</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
-
   <dependencies>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -125,18 +111,7 @@ under the License.
       <version>${mavenVersion}</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.google.inject</groupId>
-      <artifactId>guice</artifactId>
-      <version>${guiceVersion}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>${slf4jVersion}</version>
-      <scope>test</scope>
-    </dependency>
+    
   </dependencies>
 
   <build>
@@ -191,7 +166,7 @@ under the License.
                 <localRepositoryPath>${project.build.directory}/local-repo</localRepositoryPath>
                 <settingsFile>src/it/settings.xml</settingsFile>
                 <goals>
-                  <goal>clean</goal>
+                  <goal>clean package</goal>
                 </goals>
               </configuration>
             </plugin>
