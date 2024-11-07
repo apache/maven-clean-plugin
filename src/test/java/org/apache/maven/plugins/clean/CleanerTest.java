@@ -21,19 +21,17 @@ package org.apache.maven.plugins.clean;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugin.testing.SilentLog;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createFile;
@@ -45,36 +43,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class CleanerTest {
 
-    private boolean warnEnabled;
+    private static final boolean POSIX_COMPLIANT =
+            FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
 
-    /**
-     * Use a {@code LinkedHashMap} to preserve the order of the logged warnings.
-     */
-    private final Map<CharSequence, Throwable> warnings = new LinkedHashMap<>();
-
-    /**
-     * Ideally we should use a mocking framework such as Mockito for this, but alas, this project has no such dependency.
-     */
-    private final Log log = new SilentLog() {
-
-        @Override
-        public boolean isWarnEnabled() {
-            return warnEnabled;
-        }
-
-        @Override
-        public void warn(CharSequence content, Throwable error) {
-            warnings.put(content, error);
-        }
-    };
+    private final Log log = mock();
 
     @Test
     void deleteSucceedsDeeply(@TempDir Path tempDir) throws Exception {
-        final Path basedir = createDirectory(tempDir.resolve("target"));
+        assumeTrue(POSIX_COMPLIANT);
+        final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         final Path file = createFile(basedir.resolve("file"));
         final Cleaner cleaner = new Cleaner(null, log, false, null, null);
         cleaner.delete(basedir.toFile(), null, false, true, false);
@@ -84,8 +73,9 @@ class CleanerTest {
 
     @Test
     void deleteFailsWithoutRetryWhenNoPermission(@TempDir Path tempDir) throws Exception {
-        warnEnabled = true;
-        final Path basedir = createDirectory(tempDir.resolve("target"));
+        assumeTrue(POSIX_COMPLIANT);
+        when(log.isWarnEnabled()).thenReturn(true);
+        final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
         final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
         final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
@@ -97,7 +87,7 @@ class CleanerTest {
             final Cleaner cleaner = new Cleaner(null, log, false, null, null);
             final IOException exception =
                     assertThrows(IOException.class, () -> cleaner.delete(basedir.toFile(), null, false, true, false));
-            assertTrue(warnings.isEmpty());
+            verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
             assertEquals("Failed to delete " + basedir, exception.getMessage());
             final DirectoryNotEmptyException cause =
                     assertInstanceOf(DirectoryNotEmptyException.class, exception.getCause());
@@ -110,7 +100,8 @@ class CleanerTest {
 
     @Test
     void deleteFailsAfterRetryWhenNoPermission(@TempDir Path tempDir) throws Exception {
-        final Path basedir = createDirectory(tempDir.resolve("target"));
+        assumeTrue(POSIX_COMPLIANT);
+        final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
         final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
         final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
@@ -134,8 +125,9 @@ class CleanerTest {
 
     @Test
     void deleteLogsWarningWithoutRetryWhenNoPermission(@TempDir Path tempDir) throws Exception {
-        warnEnabled = true;
-        final Path basedir = createDirectory(tempDir.resolve("target"));
+        assumeTrue(POSIX_COMPLIANT);
+        when(log.isWarnEnabled()).thenReturn(true);
+        final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         final Path file = createFile(basedir.resolve("file"));
         final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
         final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
@@ -145,18 +137,15 @@ class CleanerTest {
         try {
             final Cleaner cleaner = new Cleaner(null, log, false, null, null);
             assertDoesNotThrow(() -> cleaner.delete(basedir.toFile(), null, false, false, false));
-            assertEquals(2, warnings.size());
-            final Iterator<Entry<CharSequence, Throwable>> it =
-                    warnings.entrySet().iterator();
-            final Entry<CharSequence, Throwable> warning1 = it.next();
-            assertEquals("Failed to delete " + file, warning1.getKey());
-            final AccessDeniedException cause1 = assertInstanceOf(AccessDeniedException.class, warning1.getValue());
-            assertEquals(file.toString(), cause1.getMessage());
-            final Entry<CharSequence, Throwable> warning2 = it.next();
-            assertEquals("Failed to delete " + basedir, warning2.getKey());
-            final DirectoryNotEmptyException cause2 =
-                    assertInstanceOf(DirectoryNotEmptyException.class, warning2.getValue());
-            assertEquals(basedir.toString(), cause2.getMessage());
+            verify(log, times(2)).warn(any(CharSequence.class), any(Throwable.class));
+            InOrder inOrder = inOrder(log);
+            ArgumentCaptor<AccessDeniedException> cause1 = ArgumentCaptor.forClass(AccessDeniedException.class);
+            inOrder.verify(log).warn(eq("Failed to delete " + file), cause1.capture());
+            assertEquals(file.toString(), cause1.getValue().getMessage());
+            ArgumentCaptor<DirectoryNotEmptyException> cause2 =
+                    ArgumentCaptor.forClass(DirectoryNotEmptyException.class);
+            inOrder.verify(log).warn(eq("Failed to delete " + basedir), cause2.capture());
+            assertEquals(basedir.toString(), cause2.getValue().getMessage());
         } finally {
             setPosixFilePermissions(basedir, initialPermissions);
         }
@@ -164,8 +153,9 @@ class CleanerTest {
 
     @Test
     void deleteDoesNotLogAnythingWhenNoPermissionAndWarnDisabled(@TempDir Path tempDir) throws Exception {
-        warnEnabled = false;
-        final Path basedir = createDirectory(tempDir.resolve("target"));
+        assumeTrue(POSIX_COMPLIANT);
+        when(log.isWarnEnabled()).thenReturn(false);
+        final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
         final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
         final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
@@ -175,7 +165,7 @@ class CleanerTest {
         try {
             final Cleaner cleaner = new Cleaner(null, log, false, null, null);
             assertDoesNotThrow(() -> cleaner.delete(basedir.toFile(), null, false, false, false));
-            assertTrue(warnings.isEmpty());
+            verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
         } finally {
             setPosixFilePermissions(basedir, initialPermissions);
         }
