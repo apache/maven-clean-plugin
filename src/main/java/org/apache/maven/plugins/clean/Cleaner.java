@@ -273,7 +273,8 @@ class Cleaner {
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
     private int delete(File file, boolean failOnError, boolean retryOnError) throws IOException {
-        if (!file.delete()) {
+        IOException error = delete(file);
+        if (error != null) {
             boolean deleted = false;
 
             if (retryOnError) {
@@ -289,7 +290,7 @@ class Cleaner {
                     } catch (InterruptedException e) {
                         // ignore
                     }
-                    deleted = file.delete() || !file.exists();
+                    deleted = delete(file) == null || !file.exists();
                 }
             } else {
                 deleted = !file.exists();
@@ -297,10 +298,10 @@ class Cleaner {
 
             if (!deleted) {
                 if (failOnError) {
-                    throw new IOException("Failed to delete " + file);
+                    throw new IOException("Failed to delete " + file, error);
                 } else {
                     if (log.isWarnEnabled()) {
-                        log.warn("Failed to delete " + file);
+                        log.warn("Failed to delete " + file, error);
                     }
                     return 1;
                 }
@@ -308,6 +309,15 @@ class Cleaner {
         }
 
         return 0;
+    }
+
+    private static IOException delete(File file) {
+        try {
+            Files.delete(file.toPath());
+        } catch (IOException e) {
+            return e;
+        }
+        return null;
     }
 
     private static class Result {
