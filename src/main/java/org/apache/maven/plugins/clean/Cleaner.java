@@ -74,11 +74,11 @@ class Cleaner {
     /**
      * Creates a new cleaner.
      *
-     * @param session  The Maven session to be used.
-     * @param log      The logger to use, may be <code>null</code> to disable logging.
-     * @param verbose  Whether to perform verbose logging.
-     * @param fastDir  The explicit configured directory or to be deleted in fast mode.
-     * @param fastMode The fast deletion mode.
+     * @param session  the Maven session to be used
+     * @param log      the logger to use, may be <code>null</code> to disable logging
+     * @param verbose  whether to perform verbose logging
+     * @param fastDir  the explicit configured directory or to be deleted in fast mode
+     * @param fastMode the fast deletion mode
      */
     Cleaner(Session session, Log log, boolean verbose, Path fastDir, String fastMode) {
         logDebug = (log == null || !log.isDebugEnabled()) ? null : logger(log::debug, log::debug);
@@ -111,14 +111,14 @@ class Cleaner {
     /**
      * Deletes the specified directories and its contents.
      *
-     * @param basedir The directory to delete, must not be <code>null</code>. Non-existing directories will be silently
-     *            ignored.
-     * @param selector The selector used to determine what contents to delete, may be <code>null</code> to delete
-     *            everything.
-     * @param followSymlinks Whether to follow symlinks.
-     * @param failOnError Whether to abort with an exception in case a selected file/directory could not be deleted.
-     * @param retryOnError Whether to undertake additional delete attempts in case the first attempt failed.
-     * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
+     * @param basedir the directory to delete, must not be <code>null</code>. Non-existing directories will be silently
+     *            ignored
+     * @param selector the selector used to determine what contents to delete, may be <code>null</code> to delete
+     *            everything
+     * @param followSymlinks whether to follow symlinks
+     * @param failOnError whether to abort with an exception in case a selected file/directory could not be deleted
+     * @param retryOnError whether to undertake additional delete attempts in case the first attempt failed
+     * @throws IOException if a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>
      */
     public void delete(
             Path basedir, Selector selector, boolean followSymlinks, boolean failOnError, boolean retryOnError)
@@ -209,17 +209,17 @@ class Cleaner {
     /**
      * Deletes the specified file or directory.
      *
-     * @param file The file/directory to delete, must not be <code>null</code>. If <code>followSymlinks</code> is
-     *            <code>false</code>, it is assumed that the parent file is canonical.
-     * @param pathname The relative pathname of the file, using {@link File#separatorChar}, must not be
-     *            <code>null</code>.
-     * @param selector The selector used to determine what contents to delete, may be <code>null</code> to delete
-     *            everything.
-     * @param followSymlinks Whether to follow symlinks.
-     * @param failOnError Whether to abort with an exception in case a selected file/directory could not be deleted.
-     * @param retryOnError Whether to undertake additional delete attempts in case the first attempt failed.
-     * @return The result of the cleaning, never <code>null</code>.
-     * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
+     * @param file the file/directory to delete, must not be <code>null</code>. If <code>followSymlinks</code> is
+     *            <code>false</code>, it is assumed that the parent file is canonical
+     * @param pathname the relative pathname of the file, using {@link File#separatorChar}, must not be
+     *            <code>null</code>
+     * @param selector the selector used to determine what contents to delete, may be <code>null</code> to delete
+     *            everything
+     * @param followSymlinks whether to follow symlinks
+     * @param failOnError whether to abort with an exception in case a selected file/directory could not be deleted
+     * @param retryOnError whether to undertake additional delete attempts in case the first attempt failed
+     * @return The result of the cleaning, never <code>null</code>
+     * @throws IOException if a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>
      */
     private Result delete(
             Path file,
@@ -291,13 +291,19 @@ class Cleaner {
                 || (attrs.isDirectory() && attrs.isOther());
     }
 
+    /**
+     * Deletes the specified file or directory. If the path denotes a symlink, only the link is removed. Its target is
+     * left untouched.
+     *
+     * @param file         the file/directory to delete, must not be <code>null</code>
+     * @param failOnError  whether to abort with an exception if the file/directory could not be deleted
+     * @param retryOnError whether to undertake additional delete attempts if the first attempt failed
+     * @return <code>0</code> if the file was deleted, <code>1</code> otherwise
+     * @throws IOException if a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>
+     */
     private int delete(Path file, boolean failOnError, boolean retryOnError) throws IOException {
-        try {
-            Files.deleteIfExists(file);
-            return 0;
-        } catch (IOException e) {
-            IOException exception = new IOException("Failed to delete " + file);
-            exception.addSuppressed(e);
+        IOException failure = delete(file);
+        if (failure != null) {
 
             if (retryOnError) {
                 if (ON_WINDOWS) {
@@ -309,24 +315,22 @@ class Cleaner {
                 for (int delay : delays) {
                     try {
                         Thread.sleep(delay);
-                    } catch (InterruptedException e2) {
-                        exception.addSuppressed(e2);
+                    } catch (InterruptedException e) {
+                        throw new IOException(e);
                     }
-                    try {
-                        Files.deleteIfExists(file);
-                        return 0;
-                    } catch (IOException e2) {
-                        exception.addSuppressed(e2);
+                    failure = delete(file);
+                    if (failure == null) {
+                        break;
                     }
                 }
             }
 
             if (Files.exists(file)) {
                 if (failOnError) {
-                    throw new IOException("Failed to delete " + file, exception);
+                    throw new IOException("Failed to delete " + file, failure);
                 } else {
                     if (logWarn != null) {
-                        logWarn.log("Failed to delete " + file, exception);
+                        logWarn.log("Failed to delete " + file, failure);
                     }
                     return 1;
                 }
@@ -334,6 +338,15 @@ class Cleaner {
         }
 
         return 0;
+    }
+
+    private static IOException delete(Path file) {
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            return e;
+        }
+        return null;
     }
 
     private static class Result {
@@ -426,7 +439,7 @@ class Cleaner {
             if (basedir == null) {
                 if (cleaner.session != null) {
                     SessionData data = cleaner.session.getData();
-                    Path lastDir = (Path) data.get(LAST_DIRECTORY_TO_DELETE);
+                    Path lastDir = data.get(LAST_DIRECTORY_TO_DELETE);
                     if (lastDir != null) {
                         data.set(LAST_DIRECTORY_TO_DELETE, null);
                         return lastDir;
