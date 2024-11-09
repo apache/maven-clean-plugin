@@ -36,7 +36,6 @@ import org.mockito.InOrder;
 import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.exists;
-import static java.nio.file.Files.getPosixFilePermissions;
 import static java.nio.file.Files.setPosixFilePermissions;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -77,11 +76,8 @@ class CleanerTest {
         when(log.isWarnEnabled()).thenReturn(true);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
-        final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
-        final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
         // Remove the executable flag to prevent directory listing, which will result in a DirectoryNotEmptyException.
-        final String rw_rw_r__ = rwxrwxr_x.replace('x', '-');
-        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(rw_rw_r__);
+        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rw-rw-r--");
         setPosixFilePermissions(basedir, permissions);
         final Cleaner cleaner = new Cleaner(null, log, false, null, null);
         final IOException exception =
@@ -98,11 +94,8 @@ class CleanerTest {
         assumeTrue(POSIX_COMPLIANT);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
-        final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
-        final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
         // Remove the executable flag to prevent directory listing, which will result in a DirectoryNotEmptyException.
-        final String rw_rw_r__ = rwxrwxr_x.replace('x', '-');
-        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(rw_rw_r__);
+        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rw-rw-r--");
         setPosixFilePermissions(basedir, permissions);
         final Cleaner cleaner = new Cleaner(null, log, false, null, null);
         final IOException exception =
@@ -119,11 +112,8 @@ class CleanerTest {
         when(log.isWarnEnabled()).thenReturn(true);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         final Path file = createFile(basedir.resolve("file"));
-        final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
-        final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
         // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
-        final String r_xr_xr_x = rwxrwxr_x.replace('w', '-');
-        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(r_xr_xr_x);
+        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("r-xr-xr-x");
         setPosixFilePermissions(basedir, permissions);
         final Cleaner cleaner = new Cleaner(null, log, false, null, null);
         assertDoesNotThrow(() -> cleaner.delete(basedir.toFile(), null, false, false, false));
@@ -143,11 +133,8 @@ class CleanerTest {
         when(log.isWarnEnabled()).thenReturn(false);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
-        final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
-        final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
         // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
-        final String r_xr_xr_x = rwxrwxr_x.replace('w', '-');
-        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(r_xr_xr_x);
+        final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("r-xr-xr-x");
         setPosixFilePermissions(basedir, permissions);
         final Cleaner cleaner = new Cleaner(null, log, false, null, null);
         assertDoesNotThrow(() -> cleaner.delete(basedir.toFile(), null, false, false, false));
