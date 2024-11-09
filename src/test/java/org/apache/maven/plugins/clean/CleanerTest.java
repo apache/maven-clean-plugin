@@ -121,7 +121,7 @@ class CleanerTest {
         final Path file = createFile(basedir.resolve("file"));
         final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
         final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
-        // Remove the writable flag to prevent deletion of the file, which will result in a AccessDeniedException.
+        // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
         final String r_xr_xr_x = rwxrwxr_x.replace('w', '-');
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(r_xr_xr_x);
         setPosixFilePermissions(basedir, permissions);
@@ -145,7 +145,7 @@ class CleanerTest {
         createFile(basedir.resolve("file"));
         final Set<PosixFilePermission> initialPermissions = getPosixFilePermissions(basedir);
         final String rwxrwxr_x = PosixFilePermissions.toString(initialPermissions);
-        // Remove the writable flag to prevent deletion of the file, which will result in a AccessDeniedException.
+        // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
         final String r_xr_xr_x = rwxrwxr_x.replace('w', '-');
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString(r_xr_xr_x);
         setPosixFilePermissions(basedir, permissions);
