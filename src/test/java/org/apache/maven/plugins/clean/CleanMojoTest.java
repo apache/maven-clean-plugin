@@ -52,7 +52,6 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @MojoTest
 public class CleanMojoTest {
-    private static final String LOCAL_REPO = "target/local-repo/";
 
     /**
      * Tests the simple removal of directories
@@ -175,7 +174,7 @@ public class CleanMojoTest {
             mojo.execute();
             fail("Should fail to delete a file that is locked");
         } catch (MojoException expected) {
-            assertTrue(true);
+            assertNotNull(expected.getMessage());
         }
     }
 
@@ -199,9 +198,6 @@ public class CleanMojoTest {
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
             mojo.execute();
-            assertTrue(true);
-        } catch (MojoException expected) {
-            fail("Should display a warning when deleting a file that is locked");
         }
     }
 
