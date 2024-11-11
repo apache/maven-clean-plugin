@@ -27,6 +27,8 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
+import static org.apache.maven.plugins.clean.CompositeSelector.compose;
+
 /**
  * Goal which cleans the build.
  * <p>
@@ -166,6 +168,16 @@ public class CleanMojo extends AbstractMojo {
     private boolean excludeDefaultDirectories;
 
     /**
+     * Disable the deletion of files which were put in the output directory by the build itself.
+     * This is especially useful in case of multi-module builds, where earlier modules sometimes populate the output
+     * directory of later modules to build further upon.
+     *
+     * @since 2.5
+     */
+    @Parameter(property = "maven.clean.excludeBuildFiles", defaultValue = "false")
+    private boolean excludeBuildFiles;
+
+    /**
      * Enables fast clean if possible. If set to <code>true</code>, when the plugin is executed, a directory to
      * be deleted will be atomically moved inside the <code>maven.clean.fastDir</code> directory and a thread will
      * be launched to delete the needed files in the background.  When the build is completed, maven will wait
@@ -197,7 +209,7 @@ public class CleanMojo extends AbstractMojo {
      * waiting for all files to be deleted when the session ends, <code>at-end</code> to indicate that the actual
      * deletion should be performed synchronously when the session ends, or <code>defer</code> to specify that
      * the actual file deletion should be started in the background when the session ends (this should only be used
-     * when maven is embedded in a long running process).
+     * when maven is embedded in a long-running process).
      *
      * @see #fast
      * @since 3.2
@@ -244,12 +256,17 @@ public class CleanMojo extends AbstractMojo {
                     + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'.");
         }
 
+        AgeSelector ageSelector = null;
+        if (excludeBuildFiles) {
+            ageSelector = new AgeSelector(session.getStartTime().toInstant());
+        }
+
         Cleaner cleaner = new Cleaner(session, getLog(), isVerbose(), fastDir, fastMode);
 
         try {
             for (File directoryItem : getDirectories()) {
                 if (directoryItem != null) {
-                    cleaner.delete(directoryItem, null, followSymLinks, failOnError, retryOnError);
+                    cleaner.delete(directoryItem, ageSelector, followSymLinks, failOnError, retryOnError);
                 }
             }
 
@@ -261,14 +278,15 @@ public class CleanMojo extends AbstractMojo {
                     final String[] includes = fileset.getIncludes();
                     final String[] excludes = fileset.getExcludes();
                     final boolean useDefaultExcludes = fileset.isUseDefaultExcludes();
-                    final GlobSelector selector;
+                    final GlobSelector globSelector;
                     if ((includes != null && includes.length != 0)
                             || (excludes != null && excludes.length != 0)
                             || useDefaultExcludes) {
-                        selector = new GlobSelector(includes, excludes, useDefaultExcludes);
+                        globSelector = new GlobSelector(includes, excludes, useDefaultExcludes);
                     } else {
-                        selector = null;
+                        globSelector = null;
                     }
+                    Selector selector = compose(ageSelector, globSelector);
                     cleaner.delete(
                             fileset.getDirectory(), selector, fileset.isFollowSymlinks(), failOnError, retryOnError);
                 }

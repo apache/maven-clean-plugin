@@ -19,6 +19,7 @@
 package org.apache.maven.plugins.clean;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Arrays;
 
 import org.codehaus.plexus.util.DirectoryScanner;
@@ -36,10 +37,6 @@ class GlobSelector implements Selector {
     private final String[] excludes;
 
     private final String str;
-
-    GlobSelector(String[] includes, String[] excludes) {
-        this(includes, excludes, false);
-    }
 
     GlobSelector(String[] includes, String[] excludes, boolean useDefaultExcludes) {
         this.str = "includes = " + toString(includes) + ", excludes = " + toString(excludes);
@@ -94,7 +91,7 @@ class GlobSelector implements Selector {
         return normalized;
     }
 
-    public boolean isSelected(String pathname) {
+    public boolean isSelected(Path file, String pathname) {
         return (includes.length <= 0 || isMatched(pathname, includes))
                 && (excludes.length <= 0 || !isMatched(pathname, excludes));
     }
@@ -108,7 +105,7 @@ class GlobSelector implements Selector {
         return false;
     }
 
-    public boolean couldHoldSelected(String pathname) {
+    public boolean couldHoldSelected(Path dir, String pathname) {
         for (String include : includes) {
             if (SelectorUtils.matchPatternStart(include, pathname)) {
                 return true;
