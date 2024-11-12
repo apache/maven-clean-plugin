@@ -21,7 +21,6 @@ package org.apache.maven.plugins.clean;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -29,6 +28,8 @@ import java.util.Set;
 
 import org.apache.maven.plugin.logging.Log;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -42,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -54,14 +54,11 @@ import static org.mockito.Mockito.when;
 
 class CleanerTest {
 
-    private static final boolean POSIX_COMPLIANT =
-            FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
-
     private final Log log = mock();
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void deleteSucceedsDeeply(@TempDir Path tempDir) throws Exception {
-        assumeTrue(POSIX_COMPLIANT);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         final Path file = createFile(basedir.resolve("file"));
         final Cleaner cleaner = new Cleaner(null, log, false, null, null);
@@ -71,8 +68,8 @@ class CleanerTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void deleteFailsWithoutRetryWhenNoPermission(@TempDir Path tempDir) throws Exception {
-        assumeTrue(POSIX_COMPLIANT);
         when(log.isWarnEnabled()).thenReturn(true);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
@@ -90,8 +87,8 @@ class CleanerTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void deleteFailsAfterRetryWhenNoPermission(@TempDir Path tempDir) throws Exception {
-        assumeTrue(POSIX_COMPLIANT);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
         // Remove the executable flag to prevent directory listing, which will result in a DirectoryNotEmptyException.
@@ -107,8 +104,8 @@ class CleanerTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void deleteLogsWarningWithoutRetryWhenNoPermission(@TempDir Path tempDir) throws Exception {
-        assumeTrue(POSIX_COMPLIANT);
         when(log.isWarnEnabled()).thenReturn(true);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         final Path file = createFile(basedir.resolve("file"));
@@ -128,8 +125,8 @@ class CleanerTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void deleteDoesNotLogAnythingWhenNoPermissionAndWarnDisabled(@TempDir Path tempDir) throws Exception {
-        assumeTrue(POSIX_COMPLIANT);
         when(log.isWarnEnabled()).thenReturn(false);
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         createFile(basedir.resolve("file"));
