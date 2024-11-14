@@ -210,7 +210,7 @@ class Cleaner {
         boolean isDirectory = file.isDirectory();
 
         if (isDirectory) {
-            if (selector == null || selector.couldHoldSelected(pathname)) {
+            if (selector == null || selector.couldHoldSelected(file.toPath(), pathname)) {
                 if (followSymlinks || !isSymbolicLink(file.toPath())) {
                     File canonical = followSymlinks ? file : file.getCanonicalFile();
                     String[] filenames = canonical.list();
@@ -231,7 +231,7 @@ class Cleaner {
             }
         }
 
-        if (!result.excluded && (selector == null || selector.isSelected(pathname))) {
+        if (!result.excluded && (selector == null || selector.isSelected(file.toPath(), pathname))) {
             String logmessage;
             if (isDirectory) {
                 logmessage = "Deleting directory " + file;
