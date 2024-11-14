@@ -185,7 +185,7 @@ public class CleanMojo extends AbstractMojo {
      * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
      * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
      * In order for fast clean to work correctly, this directory and the various directories that will be deleted
-     * should usually reside on the same volume. The exact conditions are system dependant though, but if an atomic
+     * should usually reside on the same volume.  The exact conditions are system-dependent though, but if an atomic
      * move is not supported, the standard deletion mechanism will be used.
      *
      * @see #fast
