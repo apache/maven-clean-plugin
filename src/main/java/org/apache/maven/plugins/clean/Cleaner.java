@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -37,6 +38,9 @@ import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.Os;
 import org.eclipse.aether.SessionData;
 
+import static java.nio.file.Files.exists;
+import static java.nio.file.Files.isDirectory;
+import static java.nio.file.Files.newDirectoryStream;
 import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_BACKGROUND;
 import static org.apache.maven.plugins.clean.CleanMojo.FAST_MODE_DEFER;
 
@@ -56,7 +60,7 @@ class Cleaner {
      */
     private final MavenSession session;
 
-    private final File fastDir;
+    private final Path fastDir;
 
     private final String fastMode;
 
@@ -73,7 +77,7 @@ class Cleaner {
      * @param fastDir  The explicit configured directory or to be deleted in fast mode.
      * @param fastMode The fast deletion mode.
      */
-    Cleaner(MavenSession session, final Log log, boolean verbose, File fastDir, String fastMode) {
+    Cleaner(MavenSession session, final Log log, boolean verbose, Path fastDir, String fastMode) {
         this.session = session;
         // This can't be null as the Cleaner gets it from the CleanMojo which gets it from AbstractMojo class, where it
         // is never null.
@@ -96,10 +100,10 @@ class Cleaner {
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
     public void delete(
-            File basedir, Selector selector, boolean followSymlinks, boolean failOnError, boolean retryOnError)
+            Path basedir, Selector selector, boolean followSymlinks, boolean failOnError, boolean retryOnError)
             throws IOException {
-        if (!basedir.isDirectory()) {
-            if (!basedir.exists()) {
+        if (!isDirectory(basedir)) {
+            if (!exists(basedir)) {
                 if (log.isDebugEnabled()) {
                     log.debug("Skipping non-existing directory " + basedir);
                 }
@@ -112,7 +116,7 @@ class Cleaner {
             log.info("Deleting " + basedir + (selector != null ? " (" + selector + ")" : ""));
         }
 
-        File file = followSymlinks ? basedir : basedir.getCanonicalFile();
+        Path file = followSymlinks ? basedir : basedir.toRealPath();
 
         if (selector == null && !followSymlinks && fastDir != null && session != null) {
             // If anything wrong happens, we'll just use the usual deletion mechanism
@@ -124,9 +128,7 @@ class Cleaner {
         delete(file, "", selector, followSymlinks, failOnError, retryOnError);
     }
 
-    private boolean fastDelete(File baseDirFile) {
-        Path baseDir = baseDirFile.toPath();
-        Path fastDir = this.fastDir.toPath();
+    private boolean fastDelete(Path baseDir) {
         // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/.clean for example
         if (fastDir.toAbsolutePath().startsWith(baseDir.toAbsolutePath())) {
             try {
@@ -135,7 +137,7 @@ class Cleaner {
                 try {
                     Files.move(baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING);
                     if (session != null) {
-                        session.getRepositorySession().getData().set(LAST_DIRECTORY_TO_DELETE, baseDir.toFile());
+                        session.getRepositorySession().getData().set(LAST_DIRECTORY_TO_DELETE, baseDir);
                     }
                     baseDir = tmpDir;
                 } catch (IOException e) {
@@ -151,7 +153,7 @@ class Cleaner {
         }
         // Create fastDir and the needed parents if needed
         try {
-            if (!Files.isDirectory(fastDir)) {
+            if (!isDirectory(fastDir)) {
                 Files.createDirectories(fastDir);
             }
         } catch (IOException e) {
@@ -172,7 +174,7 @@ class Cleaner {
             // or any other exception occurs, an exception will be thrown in which case
             // the method will return false and the usual deletion will be performed.
             Files.move(baseDir, dstDir, StandardCopyOption.ATOMIC_MOVE);
-            BackgroundCleaner.delete(this, tmpDir.toFile(), fastMode);
+            BackgroundCleaner.delete(this, tmpDir, fastMode);
             return true;
         } catch (IOException e) {
             if (log.isDebugEnabled()) {
@@ -198,7 +200,7 @@ class Cleaner {
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
     private Result delete(
-            File file,
+            Path file,
             String pathname,
             Selector selector,
             boolean followSymlinks,
@@ -207,18 +209,16 @@ class Cleaner {
             throws IOException {
         Result result = new Result();
 
-        boolean isDirectory = file.isDirectory();
+        boolean isDirectory = isDirectory(file);
 
         if (isDirectory) {
             if (selector == null || selector.couldHoldSelected(pathname)) {
-                if (followSymlinks || !isSymbolicLink(file.toPath())) {
-                    File canonical = followSymlinks ? file : file.getCanonicalFile();
-                    String[] filenames = canonical.list();
-                    if (filenames != null) {
-                        String prefix = pathname.length() > 0 ? pathname + File.separatorChar : "";
-                        for (int i = filenames.length - 1; i >= 0; i--) {
-                            String filename = filenames[i];
-                            File child = new File(canonical, filename);
+                if (followSymlinks || !isSymbolicLink(file)) {
+                    Path canonical = followSymlinks ? file : file.toRealPath();
+                    String prefix = pathname.length() > 0 ? pathname + File.separatorChar : "";
+                    try (DirectoryStream<Path> children = newDirectoryStream(canonical)) {
+                        for (Path child : children) {
+                            String filename = child.getFileName().toString();
                             result.update(delete(
                                     child, prefix + filename, selector, followSymlinks, failOnError, retryOnError));
                         }
@@ -235,7 +235,7 @@ class Cleaner {
             String logmessage;
             if (isDirectory) {
                 logmessage = "Deleting directory " + file;
-            } else if (file.exists()) {
+            } else if (exists(file)) {
                 logmessage = "Deleting file " + file;
             } else {
                 logmessage = "Deleting dangling symlink " + file;
@@ -272,7 +272,7 @@ class Cleaner {
      * @return <code>0</code> if the file was deleted, <code>1</code> otherwise.
      * @throws IOException If a file/directory could not be deleted and <code>failOnError</code> is <code>true</code>.
      */
-    private int delete(File file, boolean failOnError, boolean retryOnError) throws IOException {
+    private int delete(Path file, boolean failOnError, boolean retryOnError) throws IOException {
         IOException failure = delete(file);
         if (failure != null) {
             boolean deleted = false;
@@ -290,10 +290,10 @@ class Cleaner {
                     } catch (InterruptedException e) {
                         // ignore
                     }
-                    deleted = delete(file) == null || !file.exists();
+                    deleted = delete(file) == null || !exists(file);
                 }
             } else {
-                deleted = !file.exists();
+                deleted = !exists(file);
             }
 
             if (!deleted) {
@@ -311,9 +311,9 @@ class Cleaner {
         return 0;
     }
 
-    private static IOException delete(File file) {
+    private static IOException delete(Path file) {
         try {
-            Files.delete(file.toPath());
+            Files.delete(file);
         } catch (IOException e) {
             return e;
         }
@@ -338,19 +338,19 @@ class Cleaner {
         private static final int RUNNING = 1;
         private static final int STOPPED = 2;
         private static BackgroundCleaner instance;
-        private final Deque<File> filesToDelete = new ArrayDeque<>();
+        private final Deque<Path> filesToDelete = new ArrayDeque<>();
         private final Cleaner cleaner;
         private final String fastMode;
         private int status = NEW;
 
-        private BackgroundCleaner(Cleaner cleaner, File dir, String fastMode) {
+        private BackgroundCleaner(Cleaner cleaner, Path dir, String fastMode) throws IOException {
             super("mvn-background-cleaner");
             this.cleaner = cleaner;
             this.fastMode = fastMode;
             init(cleaner.fastDir, dir);
         }
 
-        public static void delete(Cleaner cleaner, File dir, String fastMode) {
+        public static void delete(Cleaner cleaner, Path dir, String fastMode) throws IOException {
             synchronized (BackgroundCleaner.class) {
                 if (instance == null || !instance.doDelete(dir)) {
                     instance = new BackgroundCleaner(cleaner, dir, fastMode);
@@ -368,7 +368,7 @@ class Cleaner {
 
         public void run() {
             while (true) {
-                File basedir = pollNext();
+                Path basedir = pollNext();
                 if (basedir == null) {
                     break;
                 }
@@ -380,11 +380,10 @@ class Cleaner {
             }
         }
 
-        synchronized void init(File fastDir, File dir) {
-            if (fastDir.isDirectory()) {
-                File[] children = fastDir.listFiles();
-                if (children != null && children.length > 0) {
-                    for (File child : children) {
+        synchronized void init(Path fastDir, Path dir) throws IOException {
+            if (isDirectory(fastDir)) {
+                try (DirectoryStream<Path> children = newDirectoryStream(fastDir)) {
+                    for (Path child : children) {
                         doDelete(child);
                     }
                 }
@@ -392,12 +391,12 @@ class Cleaner {
             doDelete(dir);
         }
 
-        synchronized File pollNext() {
-            File basedir = filesToDelete.poll();
+        synchronized Path pollNext() {
+            Path basedir = filesToDelete.poll();
             if (basedir == null) {
                 if (cleaner.session != null) {
                     SessionData data = cleaner.session.getRepositorySession().getData();
-                    File lastDir = (File) data.get(LAST_DIRECTORY_TO_DELETE);
+                    Path lastDir = (Path) data.get(LAST_DIRECTORY_TO_DELETE);
                     if (lastDir != null) {
                         data.set(LAST_DIRECTORY_TO_DELETE, null);
                         return lastDir;
@@ -409,7 +408,7 @@ class Cleaner {
             return basedir;
         }
 
-        synchronized boolean doDelete(File dir) {
+        synchronized boolean doDelete(Path dir) {
             if (status == STOPPED) {
                 return false;
             }
