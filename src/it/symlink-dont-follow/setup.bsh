@@ -39,7 +39,7 @@ for ( String[] pair : pairs )
     System.out.println( "Creating symlink " + link + " -> " + target );
     Path targetPath = target.toPath();
     Path linkPath = link.toPath();
-    Files.createSymbolicLink( targetPath, linkPath );
+    Files.createSymbolicLink( (Path) targetPath, (Path) linkPath );
     if ( !link.exists() )
     {
         System.out.println( "Platform does not support symlinks, skipping test." );
