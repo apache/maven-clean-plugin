@@ -45,7 +45,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test the clean mojo.
@@ -171,10 +170,7 @@ public class CleanMojoTest {
         File f = new File(getBasedir(), "buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
-            mojo.execute();
-            fail("Should fail to delete a file that is locked");
-        } catch (MojoException expected) {
-            assertNotNull(expected.getMessage());
+            assertThrows(MojoException.class, () -> mojo.execute());
         }
     }
 
