@@ -198,8 +198,8 @@ public class CleanMojo extends AbstractMojo {
      * Mode to use when using fast clean.  Values are: <code>background</code> to start deletion immediately and
      * waiting for all files to be deleted when the session ends, <code>at-end</code> to indicate that the actual
      * deletion should be performed synchronously when the session ends, or <code>defer</code> to specify that
-     * the actual file deletion should be started in the background when the session ends (this should only be used
-     * when maven is embedded in a long-running process).
+     * the actual file deletion should be started in the background when the session ends.  This should only be used
+     * when maven is embedded in a long-running process.
      *
      * @see #fast
      * @since 3.2
