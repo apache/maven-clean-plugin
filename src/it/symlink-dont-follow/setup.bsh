@@ -37,7 +37,7 @@ for ( String[] pair : pairs )
     File target = new File( basedir, pair[0] );
     File link = new File( basedir, pair[1] );
     System.out.println( "Creating symlink " + link + " -> " + target );
-    Files.createSymbolicLink( target, link );
+    Files.createSymbolicLink( target.toPath(), link.toPath() );
     if ( !link.exists() )
     {
         System.out.println( "Platform does not support symlinks, skipping test." );
