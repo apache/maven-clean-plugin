@@ -31,7 +31,7 @@ try
     File target = new File( targetDir, "link-target.txt" );
 
     System.out.println( "Creating symlink " + link + " -> " + target );
-    Files.createSymbolicLink( target.toPath(), link.toPath() );
+    Files.createSymbolicLink( link.toPath(), target.toPath() );
     if ( !link.exists() )
     {
         System.out.println( "Platform does not support symlinks, skipping test." );
