@@ -18,43 +18,40 @@
  */
 
 import java.io.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
 
-String[] expected = {
+def expected = [
     "ext",
     "ext/file.txt",
     "ext/dir/file.txt",
-};
+];
 
 for ( String path : expected )
 {
     File file = new File( basedir, path );
-    System.out.println( "Checking for existence of " + file );
+    println "Checking for existence of " + file;
     if ( !file.exists() )
     {
-        System.out.println( "FAILURE!" );
+        println "FAILURE!";
         return false;
     }
 }
 
-String[] unexpected = {
+def unexpected = [
     "target/link.txt",
     "target/link",
     "target",
     "target2/link.txt",
     "target2/link",
     "target2",
-};
+];
 
 for ( String path : unexpected )
 {
     File file = new File( basedir, path );
-    System.out.println( "Checking for absence of " + file );
+    println "Checking for absence of " + file;
     if ( file.exists() )
     {
-        System.out.println( "FAILURE!" );
+        println "FAILURE!";
         return false;
     }
 }
