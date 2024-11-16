@@ -36,13 +36,13 @@ for ( pair : pairs )
 {
     File target = new File( basedir, pair[0] );
     File link = new File( basedir, pair[1] );
-    System.out.println( "Creating symlink " + link + " -> " + target );
+    println "Creating symlink " + link + " -> " + target;
     Path targetPath = target.toPath();
     Path linkPath = link.toPath();
     Files.createSymbolicLink( (Path) targetPath, (Path) linkPath );
     if ( !link.exists() )
     {
-        System.out.println( "Platform does not support symlinks, skipping test." );
+        println "Platform does not support symlinks, skipping test.";
         return;
     }
 }
