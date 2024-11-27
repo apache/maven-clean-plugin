@@ -45,14 +45,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test the clean mojo.
  */
 @MojoTest
 public class CleanMojoTest {
-    private static final String LOCAL_REPO = "target/local-repo/";
 
     /**
      * Tests the simple removal of directories
@@ -172,10 +170,7 @@ public class CleanMojoTest {
         File f = new File(getBasedir(), "buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
-            mojo.execute();
-            fail("Should fail to delete a file that is locked");
-        } catch (MojoException expected) {
-            assertTrue(true);
+            assertThrows(MojoException.class, () -> mojo.execute());
         }
     }
 
@@ -199,9 +194,6 @@ public class CleanMojoTest {
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
             mojo.execute();
-            assertTrue(true);
-        } catch (MojoException expected) {
-            fail("Should display a warning when deleting a file that is locked");
         }
     }
 
