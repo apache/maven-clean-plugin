@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-_extends: maven-gh-actions-shared
+_extends: maven-gh-actions-shared:.github/release-drafter.yml
 tag-template: maven-clean-plugin-$NEXT_MINOR_VERSION
 version-template: 3.$MINOR.$PATCH
 commitish: maven-clean-plugin-3.x
