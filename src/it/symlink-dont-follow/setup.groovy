@@ -18,30 +18,31 @@
  */
 
 import java.io.*;
+import java.nio.file.*;
 import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
 import org.apache.maven.plugins.clean.*;
 
-try
-{
-    File targetDir = new File( basedir, "target" );
-    File link = new File( targetDir, "link" );
-    File target = new File( targetDir, "link-target.txt" );
+def pairs =
+[
+    [ "ext/file.txt", "target/link.txt" ],
+    [ "ext/dir", "target/link" ],
+    [ "ext/file.txt", "target2/link.txt" ],
+    [ "ext/dir", "target2/link" ],
+];
 
-    System.out.println( "Creating symlink " + link + " -> " + target );
-    if ( !Utils.createSymlink( target, link ) || !link.exists() )
+for ( pair : pairs )
+{
+    File target = new File( basedir, pair[0] );
+    File link = new File( basedir, pair[1] );
+    println "Creating symlink " + link + " -> " + target;
+    Path targetPath = target.toPath();
+    Path linkPath = link.toPath();
+    Files.createSymbolicLink( linkPath, targetPath );
+    if ( !link.exists() )
     {
-        System.out.println( "FAILURE, platform does not support symlinks, skipping test." );
+        println "Platform does not support symlinks, skipping test.";
+        return;
     }
-
-    System.out.println( "Deleting symlink target " + target );
-    target.delete();
 }
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
-}
-
-return true;
