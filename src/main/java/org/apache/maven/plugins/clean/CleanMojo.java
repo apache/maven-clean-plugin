@@ -20,6 +20,8 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -183,7 +185,7 @@ public class CleanMojo extends AbstractMojo {
      * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
      * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
      * In order for fast clean to work correctly, this directory and the various directories that will be deleted
-     * should usually reside on the same volume. The exact conditions are system dependant though, but if an atomic
+     * should usually reside on the same volume.  The exact conditions are system-dependent though, but if an atomic
      * move is not supported, the standard deletion mechanism will be used.
      *
      * @see #fast
@@ -196,8 +198,8 @@ public class CleanMojo extends AbstractMojo {
      * Mode to use when using fast clean.  Values are: <code>background</code> to start deletion immediately and
      * waiting for all files to be deleted when the session ends, <code>at-end</code> to indicate that the actual
      * deletion should be performed synchronously when the session ends, or <code>defer</code> to specify that
-     * the actual file deletion should be started in the background when the session ends (this should only be used
-     * when maven is embedded in a long running process).
+     * the actual file deletion should be started in the background when the session ends.  This should only be used
+     * when maven is embedded in a long-running process.
      *
      * @see #fast
      * @since 3.2
@@ -223,11 +225,14 @@ public class CleanMojo extends AbstractMojo {
 
         String multiModuleProjectDirectory =
                 session != null ? session.getSystemProperties().getProperty("maven.multiModuleProjectDirectory") : null;
-        File fastDir;
+        Path fastDir;
         if (fast && this.fastDir != null) {
-            fastDir = this.fastDir;
+            fastDir = toNullablePath(this.fastDir);
         } else if (fast && multiModuleProjectDirectory != null) {
-            fastDir = new File(multiModuleProjectDirectory, "target/.clean");
+            fastDir = FileSystems.getDefault()
+                    .getPath(multiModuleProjectDirectory)
+                    .resolve("target")
+                    .resolve(".clean");
         } else {
             fastDir = null;
             if (fast) {
@@ -247,7 +252,7 @@ public class CleanMojo extends AbstractMojo {
         Cleaner cleaner = new Cleaner(session, getLog(), isVerbose(), fastDir, fastMode);
 
         try {
-            for (File directoryItem : getDirectories()) {
+            for (Path directoryItem : getDirectories()) {
                 if (directoryItem != null) {
                     cleaner.delete(directoryItem, null, followSymLinks, failOnError, retryOnError);
                 }
@@ -270,7 +275,11 @@ public class CleanMojo extends AbstractMojo {
                         selector = null;
                     }
                     cleaner.delete(
-                            fileset.getDirectory(), selector, fileset.isFollowSymlinks(), failOnError, retryOnError);
+                            fileset.getDirectory().toPath(),
+                            selector,
+                            fileset.isFollowSymlinks(),
+                            failOnError,
+                            retryOnError);
                 }
             }
         } catch (IOException e) {
@@ -292,13 +301,22 @@ public class CleanMojo extends AbstractMojo {
      *
      * @return The directories to clean or an empty array if none, never <code>null</code>.
      */
-    private File[] getDirectories() {
-        File[] directories;
+    private Path[] getDirectories() {
+        Path[] directories;
         if (excludeDefaultDirectories) {
-            directories = new File[0];
+            directories = new Path[0];
         } else {
-            directories = new File[] {directory, outputDirectory, testOutputDirectory, reportDirectory};
+            directories = new Path[] {
+                toNullablePath(directory),
+                toNullablePath(outputDirectory),
+                toNullablePath(testOutputDirectory),
+                toNullablePath(reportDirectory)
+            };
         }
         return directories;
+    }
+
+    private static Path toNullablePath(File file) {
+        return file != null ? file.toPath() : null;
     }
 }

@@ -263,7 +263,7 @@ class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner.delete(dirWithLnk.toFile(), null, false, true, false);
+        cleaner.delete(dirWithLnk, null, false, true, false);
         // verify
         assertTrue(Files.exists(file));
         assertFalse(Files.exists(jctDir));
@@ -276,7 +276,7 @@ class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner.delete(dirWithLnk.toFile(), null, true, true, false);
+        cleaner.delete(dirWithLnk, null, true, true, false);
         // verify
         assertFalse(Files.exists(file));
         assertFalse(Files.exists(jctDir));
