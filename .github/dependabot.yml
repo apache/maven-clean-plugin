@@ -16,15 +16,19 @@
 #
 version: 2
 updates:
+
   - package-ecosystem: "maven"
     directory: "/"
     schedule:
       interval: "daily"
-    ignore:
-      # Ignore Maven Core updates
-      - dependency-name: "org.apache.maven:*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
 
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "maven-clean-plugin-3.x"
