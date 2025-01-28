@@ -20,4 +20,3 @@ tag-template: maven-clean-plugin-$NEXT_PATCH_VERSION
 version-template: 4.$MINOR.$PATCH
 commitish: master
 filter-by-commitish: true
-prerelease-identifier: 'beta'
