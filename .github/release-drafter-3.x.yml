@@ -16,7 +16,9 @@
 # under the License.
 
 _extends: maven-gh-actions-shared:.github/release-drafter.yml
-tag-template: maven-clean-plugin-$NEXT_MINOR_VERSION
-version-template: 3.$MINOR.$PATCH
+
+name-template: $RESOLVED_VERSION
+tag-template: maven-clean-plugin-$RESOLVED_VERSION
+
 commitish: maven-clean-plugin-3.x
 filter-by-commitish: true

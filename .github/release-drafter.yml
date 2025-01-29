@@ -16,7 +16,9 @@
 # under the License.
 
 _extends: maven-gh-actions-shared
-tag-template: maven-clean-plugin-$NEXT_PATCH_VERSION
-version-template: 4.$MINOR.$PATCH
+
+name-template: $RESOLVED_VERSION
+tag-template: maven-clean-plugin-$RESOLVED_VERSION
+
 commitish: master
 filter-by-commitish: true
