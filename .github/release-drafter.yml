@@ -19,6 +19,7 @@ _extends: maven-gh-actions-shared
 
 name-template: $RESOLVED_VERSION
 tag-template: maven-clean-plugin-$RESOLVED_VERSION
+version-template: $COMPLETE
 
 commitish: master
 filter-by-commitish: true
