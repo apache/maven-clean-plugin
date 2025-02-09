@@ -18,6 +18,7 @@ Contributing to [Apache Maven Clean Plugin](https://maven.apache.org/plugins/mav
 ======================
 
 [![Apache License, Version 2.0, January 2004](https://img.shields.io/github/license/apache/maven.svg?label=License)][license]
+[![Maven Central](https://img.shields.io/maven-central/v/org.apache.maven.plugins/maven-clean-plugin.svg?label=Maven%20Central&versionPrefix=3.)](https://search.maven.org/artifact/org.apache.maven.plugins/maven-clean-plugin)
 [![Maven Central](https://img.shields.io/maven-central/v/org.apache.maven.plugins/maven-clean-plugin.svg?label=Maven%20Central)](https://search.maven.org/artifact/org.apache.maven.plugins/maven-clean-plugin)
 [![Reproducible Builds](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/org/apache/maven/plugins/maven-clean-plugin/badge.json)](https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/org/apache/maven/plugins/maven-clean-plugin/README.md)
 [![Jenkins Status](https://img.shields.io/jenkins/s/https/ci-maven.apache.org/job/Maven/job/maven-box/job/maven-clean-plugin/job/master.svg?)][build]
