@@ -61,13 +61,13 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>4.0.0-beta-5</mavenVersion>
+    <mavenVersion>4.0.0-rc-2</mavenVersion>
     <javaVersion>17</javaVersion>
     <guavaVersion>33.2.1-jre</guavaVersion>
     <guiceVersion>6.0.0</guiceVersion>
     <slf4jVersion>2.0.16</slf4jVersion>
     <version.maven-invoker-plugin>3.7.0</version.maven-invoker-plugin>
-    <version.maven-plugin-testing>4.0.0-beta-2</version.maven-plugin-testing>
+    <version.maven-plugin-testing>4.0.0-beta-3</version.maven-plugin-testing>
     <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
     <version.maven-site-plugin>3.21.0</version.maven-site-plugin>
     <version.maven-fluido-skin>2.0.1</version.maven-fluido-skin>
@@ -99,7 +99,7 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
-      <artifactId>maven-api-meta</artifactId>
+      <artifactId>maven-api-annotations</artifactId>
       <version>${mavenVersion}</version>
       <scope>provided</scope>
     </dependency>
@@ -123,7 +123,7 @@ under the License.
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
-      <artifactId>maven-api-impl</artifactId>
+      <artifactId>maven-impl</artifactId>
       <version>${mavenVersion}</version>
       <scope>test</scope>
     </dependency>
