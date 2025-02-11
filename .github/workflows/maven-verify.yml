@@ -26,6 +26,5 @@ jobs:
     name: Verify
     uses: apache/maven-gh-actions-shared/.github/workflows/maven-verify.yml@v4
     with:
-      ff-maven: "4.0.0-rc-2"                     # Maven version for fail-fast-build
-      maven-matrix: '[ "4.0.0-rc-2" ]'
-      jdk-matrix: '[ "17", "21" ]'
+      maven4-build: true
+      maven4-version: '4.0.0-rc-2' # the same as used in project
