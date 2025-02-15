@@ -21,3 +21,7 @@ tag-template: maven-clean-plugin-$RESOLVED_VERSION
 
 include-pre-releases: true
 prerelease: true
+
+header: |
+  > [!WARNING]
+  > This plugin is a Maven 4 plugin and requires Maven 4.x to run.
