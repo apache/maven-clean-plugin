@@ -56,7 +56,7 @@ under the License.
   <distributionManagement>
     <site>
       <id>apache.website</id>
-      <url>scm:svn:https://svn.apache.org/repos/asf/maven/website/components/${maven4x.site.path}</url>
+      <url>scm:svn:https://svn.apache.org/repos/asf/maven/website/components/${maven.site.path}</url>
     </site>
   </distributionManagement>
 
@@ -73,8 +73,10 @@ under the License.
     <version.maven-fluido-skin>2.0.1</version.maven-fluido-skin>
     <project.build.outputTimestamp>2024-06-26T08:19:25Z</project.build.outputTimestamp>
 
-    <!-- TODO remove with next parent -->
+    <!-- TODO remove property maven4x.site.path with next parent -->
     <maven4x.site.path>plugins-archives/${project.artifactId}-LATEST-4.x</maven4x.site.path>
+    <!-- 4.x publish -->
+    <maven.site.path>${maven4x.site.path}</maven.site.path>
   </properties>
 
   <dependencyManagement>
