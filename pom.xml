@@ -28,7 +28,7 @@ under the License.
   </parent>
 
   <artifactId>maven-clean-plugin</artifactId>
-  <version>4.0.0-beta-2-SNAPSHOT</version>
+  <version>4.0.0-beta-2</version>
   <packaging>maven-plugin</packaging>
 
   <name>Apache Maven Clean Plugin</name>
@@ -42,7 +42,7 @@ under the License.
   <scm>
     <connection>scm:git:https://gitbox.apache.org/repos/asf/maven-clean-plugin.git</connection>
     <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/maven-clean-plugin.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>maven-clean-plugin-4.0.0-beta-2</tag>
     <url>https://github.com/apache/maven-clean-plugin/tree/${project.scm.tag}</url>
   </scm>
   <issueManagement>
@@ -71,7 +71,7 @@ under the License.
     <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
     <version.maven-site-plugin>3.21.0</version.maven-site-plugin>
     <version.maven-fluido-skin>2.0.1</version.maven-fluido-skin>
-    <project.build.outputTimestamp>2024-06-26T08:19:25Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>2025-02-15T18:29:07Z</project.build.outputTimestamp>
 
     <!-- TODO remove property maven4x.site.path with next parent -->
     <maven4x.site.path>plugins-archives/${project.artifactId}-LATEST-4.x</maven4x.site.path>
