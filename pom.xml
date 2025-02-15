@@ -63,7 +63,7 @@ under the License.
   <properties>
     <mavenVersion>4.0.0-rc-2</mavenVersion>
     <javaVersion>17</javaVersion>
-    <guavaVersion>33.2.1-jre</guavaVersion>
+    <guavaVersion>33.4.0-jre</guavaVersion>
     <guiceVersion>6.0.0</guiceVersion>
     <slf4jVersion>2.0.16</slf4jVersion>
     <version.maven-invoker-plugin>3.7.0</version.maven-invoker-plugin>
