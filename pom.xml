@@ -42,7 +42,7 @@ under the License.
   <scm>
     <connection>scm:git:https://gitbox.apache.org/repos/asf/maven-clean-plugin.git</connection>
     <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/maven-clean-plugin.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>maven-clean-plugin-3.x</tag>
     <url>https://github.com/apache/maven-clean-plugin/tree/${project.scm.tag}</url>
   </scm>
   <issueManagement>
