@@ -86,7 +86,7 @@ public class CleanMojoTest {
 
     /**
      * Tests that no exception is thrown when all internal variables are empty and that it doesn't
-     * just remove whats there
+     * just remove what's there
      *
      * @throws Exception in case of an error.
      */
@@ -274,32 +274,6 @@ public class CleanMojoTest {
         assertTrue(Files.exists(orgDir));
         assertFalse(Files.exists(dirWithLnk));
     }
-
-    //    @Provides
-    //    @Singleton
-    //    private Project createProject() {
-    //        ProjectStub project = new ProjectStub();
-    //        project.setGroupId("myGroupId");
-    //        return project;
-    //    }
-
-    //    @Provides
-    //    @Singleton
-    //    @SuppressWarnings("unused")
-    //    private InternalSession createSession() {
-    //        InternalSession session = SessionStub.getMockSession(LOCAL_REPO);
-    //        Properties props = new Properties();
-    //        props.put("basedir", MojoExtension.getBasedir());
-    //        doReturn(props).when(session).getSystemProperties();
-    //        return session;
-    //    }
-
-    //    @Provides
-    //    @Singleton
-    //    @SuppressWarnings("unused")
-    //    private MojoExecution createMojoExecution() {
-    //        return new MojoExecutionStub("default-clean", "clean");
-    //    }
 
     /**
      * @param dir a dir or a file
