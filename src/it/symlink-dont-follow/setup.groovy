@@ -17,12 +17,8 @@
  * under the License.
  */
 
-import java.io.*;
 import java.nio.file.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
-import org.apache.maven.plugins.clean.*;
+import java.nio.file.attribute.*;
 
 def pairs =
 [
@@ -34,13 +30,11 @@ def pairs =
 
 for ( pair : pairs )
 {
-    File target = new File( basedir, pair[0] );
-    File link = new File( basedir, pair[1] );
-    println "Creating symlink " + link + " -> " + target;
-    Path targetPath = target.toPath();
-    Path linkPath = link.toPath();
-    Files.createSymbolicLink( linkPath, targetPath );
-    if ( !link.exists() )
+    Path target = basedir.toPath().resolve( pair[0] );
+    Path link = basedir.toPath().resolve( pair[1] );
+    System.out.println( "Creating symlink " + link + " -> " + target );
+    Files.createSymbolicLink( link, target, new FileAttribute[0] );
+    if ( !Files.exists( link, new LinkOption[0] ) )
     {
         println "Platform does not support symlinks, skipping test.";
         return;
