@@ -188,7 +188,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
      * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
      * In order for fast clean to work correctly, this directory and the various directories that will be deleted
-     * should usually reside on the same volume. The exact conditions are system dependant though, but if an atomic
+     * should usually reside on the same volume.  The exact conditions are system-dependent though, but if an atomic
      * move is not supported, the standard deletion mechanism will be used.
      *
      * @since 3.2
@@ -201,8 +201,8 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * Mode to use when using fast clean.  Values are: <code>background</code> to start deletion immediately and
      * waiting for all files to be deleted when the session ends, <code>at-end</code> to indicate that the actual
      * deletion should be performed synchronously when the session ends, or <code>defer</code> to specify that
-     * the actual file deletion should be started in the background when the session ends (this should only be used
-     * when maven is embedded in a long running process).
+     * the actual file deletion should be started in the background when the session ends.  This should only be used
+     * when maven is embedded in a long-running process.
      *
      * @since 3.2
      * @see #fast

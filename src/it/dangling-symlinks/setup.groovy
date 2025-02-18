@@ -17,28 +17,24 @@
  * under the License.
  */
 
-import java.io.*;
 import java.nio.file.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
-import org.apache.maven.plugins.clean.*;
+import java.nio.file.attribute.*;
 
 try
 {
-    File targetDir = new File( basedir, "target" );
-    File link = new File( targetDir, "link" );
-    File target = new File( targetDir, "link-target.txt" );
+    Path targetDir = basedir.toPath().resolve( "target" );
+    Path link = targetDir.resolve( "link" );
+    Path target = targetDir.resolve( "link-target.txt" );
 
     System.out.println( "Creating symlink " + link + " -> " + target );
-    Files.createSymbolicLink( link.toPath(), target.toPath() );
-    if ( !link.exists() )
+    Files.createSymbolicLink( link, target, new FileAttribute[0] );
+    if ( !Files.exists( link, new LinkOption[0] ) )
     {
         System.out.println( "Platform does not support symlinks, skipping test." );
     }
 
     System.out.println( "Deleting symlink target " + target );
-    target.delete();
+    Files.delete( target );
 }
 catch( Exception ex )
 {
