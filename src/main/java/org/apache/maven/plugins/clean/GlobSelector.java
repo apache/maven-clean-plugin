@@ -37,10 +37,6 @@ class GlobSelector implements Selector {
 
     private final String str;
 
-    GlobSelector(String[] includes, String[] excludes) {
-        this(includes, excludes, false);
-    }
-
     GlobSelector(String[] includes, String[] excludes, boolean useDefaultExcludes) {
         this.str = "includes = " + toString(includes) + ", excludes = " + toString(excludes);
         this.includes = normalizePatterns(includes);
