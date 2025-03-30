@@ -20,7 +20,6 @@ package org.apache.maven.plugins.clean;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.apache.maven.api.Session;
 import org.apache.maven.api.di.Inject;
@@ -220,6 +219,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * @throws MojoException When a directory failed to get deleted.
      * @see org.apache.maven.api.plugin.Mojo#execute()
      */
+    @Override
     public void execute() {
         if (skip) {
             getLog().info("Clean is skipped.");
@@ -232,7 +232,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
         if (fast && this.fastDir != null) {
             fastDir = this.fastDir;
         } else if (fast && multiModuleProjectDirectory != null) {
-            fastDir = Paths.get(multiModuleProjectDirectory, "target/.clean");
+            fastDir = Path.of(multiModuleProjectDirectory, "target", ".clean");
         } else {
             fastDir = null;
             if (fast) {

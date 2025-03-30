@@ -407,6 +407,7 @@ class Cleaner {
             init(cleaner.fastDir, dir);
         }
 
+        @Override
         public void run() {
             while (true) {
                 Path basedir = pollNext();
