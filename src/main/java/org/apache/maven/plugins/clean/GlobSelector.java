@@ -90,6 +90,7 @@ class GlobSelector implements Selector {
         return normalized;
     }
 
+    @Override
     public boolean isSelected(String pathname) {
         return (includes.length <= 0 || isMatched(pathname, includes))
                 && (excludes.length <= 0 || !isMatched(pathname, excludes));
@@ -104,6 +105,7 @@ class GlobSelector implements Selector {
         return false;
     }
 
+    @Override
     public boolean couldHoldSelected(String pathname) {
         for (String include : includes) {
             if (SelectorUtils.matchPatternStart(include, pathname)) {
@@ -113,6 +115,7 @@ class GlobSelector implements Selector {
         return includes.length <= 0;
     }
 
+    @Override
     public String toString() {
         return str;
     }
