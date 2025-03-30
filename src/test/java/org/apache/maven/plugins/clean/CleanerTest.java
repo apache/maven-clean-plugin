@@ -18,9 +18,7 @@
  */
 package org.apache.maven.plugins.clean;
 
-import java.io.IOException;
 import java.nio.file.AccessDeniedException;
-import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -41,8 +39,8 @@ import static java.nio.file.Files.setPosixFilePermissions;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -61,8 +59,8 @@ class CleanerTest {
     void deleteSucceedsDeeply(@TempDir Path tempDir) throws Exception {
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         final Path file = createFile(basedir.resolve("file"));
-        final Cleaner cleaner = new Cleaner(null, log, false, null, null);
-        cleaner.delete(basedir, null, false, true, false);
+        final var cleaner = new Cleaner(null, log, false, null, null, false, true, false);
+        cleaner.delete(basedir);
         assertFalse(exists(basedir));
         assertFalse(exists(file));
     }
@@ -76,14 +74,10 @@ class CleanerTest {
         // Remove the executable flag to prevent directory listing, which will result in a DirectoryNotEmptyException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rw-rw-r--");
         setPosixFilePermissions(basedir, permissions);
-        final Cleaner cleaner = new Cleaner(null, log, false, null, null);
-        final IOException exception =
-                assertThrows(IOException.class, () -> cleaner.delete(basedir, null, false, true, false));
-        verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
-        assertEquals("Failed to delete " + basedir, exception.getMessage());
-        final DirectoryNotEmptyException cause =
-                assertInstanceOf(DirectoryNotEmptyException.class, exception.getCause());
-        assertEquals(basedir.toString(), cause.getMessage());
+        final var cleaner = new Cleaner(null, log, false, null, null, false, true, false);
+        final var exception = assertThrows(AccessDeniedException.class, () -> cleaner.delete(basedir));
+        verify(log, times(1)).warn(any(CharSequence.class), any(Throwable.class));
+        assertTrue(exception.getMessage().contains(basedir.toString()));
     }
 
     @Test
@@ -94,13 +88,9 @@ class CleanerTest {
         // Remove the executable flag to prevent directory listing, which will result in a DirectoryNotEmptyException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rw-rw-r--");
         setPosixFilePermissions(basedir, permissions);
-        final Cleaner cleaner = new Cleaner(null, log, false, null, null);
-        final IOException exception =
-                assertThrows(IOException.class, () -> cleaner.delete(basedir, null, false, true, true));
-        assertEquals("Failed to delete " + basedir, exception.getMessage());
-        final DirectoryNotEmptyException cause =
-                assertInstanceOf(DirectoryNotEmptyException.class, exception.getCause());
-        assertEquals(basedir.toString(), cause.getMessage());
+        final var cleaner = new Cleaner(null, log, false, null, null, false, true, true);
+        final var exception = assertThrows(AccessDeniedException.class, () -> cleaner.delete(basedir));
+        assertTrue(exception.getMessage().contains(basedir.toString()));
     }
 
     @Test
@@ -112,16 +102,13 @@ class CleanerTest {
         // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("r-xr-xr-x");
         setPosixFilePermissions(basedir, permissions);
-        final Cleaner cleaner = new Cleaner(null, log, false, null, null);
-        assertDoesNotThrow(() -> cleaner.delete(basedir, null, false, false, false));
-        verify(log, times(2)).warn(any(CharSequence.class), any(Throwable.class));
+        final var cleaner = new Cleaner(null, log, false, null, null, false, false, false);
+        assertDoesNotThrow(() -> cleaner.delete(basedir));
+        verify(log, times(1)).warn(any(CharSequence.class), any(Throwable.class));
         InOrder inOrder = inOrder(log);
         ArgumentCaptor<AccessDeniedException> cause1 = ArgumentCaptor.forClass(AccessDeniedException.class);
         inOrder.verify(log).warn(eq("Failed to delete " + file), cause1.capture());
         assertEquals(file.toString(), cause1.getValue().getMessage());
-        ArgumentCaptor<DirectoryNotEmptyException> cause2 = ArgumentCaptor.forClass(DirectoryNotEmptyException.class);
-        inOrder.verify(log).warn(eq("Failed to delete " + basedir), cause2.capture());
-        assertEquals(basedir.toString(), cause2.getValue().getMessage());
     }
 
     @Test
@@ -133,8 +120,8 @@ class CleanerTest {
         // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("r-xr-xr-x");
         setPosixFilePermissions(basedir, permissions);
-        final Cleaner cleaner = new Cleaner(null, log, false, null, null);
-        assertDoesNotThrow(() -> cleaner.delete(basedir, null, false, false, false));
+        final var cleaner = new Cleaner(null, log, false, null, null, false, false, false);
+        assertDoesNotThrow(() -> cleaner.delete(basedir));
         verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
     }
 }
