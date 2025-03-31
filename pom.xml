@@ -61,13 +61,13 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>4.0.0-rc-2</mavenVersion>
+    <mavenVersion>4.0.0-rc-3</mavenVersion>
     <javaVersion>17</javaVersion>
     <guavaVersion>33.4.6-jre</guavaVersion>
     <guiceVersion>6.0.0</guiceVersion>
     <slf4jVersion>2.0.17</slf4jVersion>
     <version.maven-invoker-plugin>3.7.0</version.maven-invoker-plugin>
-    <version.maven-plugin-testing>4.0.0-beta-3</version.maven-plugin-testing>
+    <version.maven-plugin-testing>4.0.0-beta-4</version.maven-plugin-testing>
     <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
     <version.maven-site-plugin>3.21.0</version.maven-site-plugin>
     <version.maven-fluido-skin>2.0.1</version.maven-fluido-skin>
