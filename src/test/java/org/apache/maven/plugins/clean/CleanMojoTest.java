@@ -41,7 +41,6 @@ import org.junit.jupiter.api.condition.OS;
 
 import static org.apache.maven.api.plugin.testing.MojoExtension.getBasedir;
 import static org.apache.maven.api.plugin.testing.MojoExtension.setVariableValueToObject;
-import static org.codehaus.plexus.util.IOUtil.copy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -215,8 +214,8 @@ public class CleanMojoTest {
                     .start();
             process.waitFor();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            copy(process.getInputStream(), baos);
-            copy(process.getErrorStream(), baos);
+            process.getInputStream().transferTo(baos);
+            process.getErrorStream().transferTo(baos);
             if (!Files.exists(link)) {
                 throw new IOException("Unable to create junction: " + baos);
             }

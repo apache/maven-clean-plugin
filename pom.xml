@@ -99,11 +99,6 @@ under the License.
       <scope>provided</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-utils</artifactId>
-    </dependency>
-
     <!-- Test -->
     <dependency>
       <groupId>org.apache.maven.plugin-testing</groupId>

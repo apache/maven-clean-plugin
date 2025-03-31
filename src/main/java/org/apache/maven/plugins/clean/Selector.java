@@ -25,8 +25,6 @@ import java.nio.file.PathMatcher;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import org.codehaus.plexus.util.DirectoryScanner;
-
 /**
  * Determines whether a path is selected for deletion.
  * The pathnames used for method parameters will be relative to some base directory
@@ -54,6 +52,85 @@ import org.codehaus.plexus.util.DirectoryScanner;
  * @author Martin Desruisseaux
  */
 final class Selector implements PathMatcher {
+    /**
+     * Patterns which should be excluded by default, like <abbr>SCM</abbr> files.
+     *
+     * <p><b>Source:</b> this list is copied from {@code plexus-utils-4.0.2} (released in
+     * September 23, 2024), class {@code org.codehaus.plexus.util.AbstractScanner}.</p>
+     */
+    private static final String[] DEFAULT_EXCLUDES = {
+        // Miscellaneous typical temporary files
+        "**/*~",
+        "**/#*#",
+        "**/.#*",
+        "**/%*%",
+        "**/._*",
+
+        // CVS
+        "**/CVS",
+        "**/CVS/**",
+        "**/.cvsignore",
+
+        // RCS
+        "**/RCS",
+        "**/RCS/**",
+
+        // SCCS
+        "**/SCCS",
+        "**/SCCS/**",
+
+        // Visual SourceSafe
+        "**/vssver.scc",
+
+        // MKS
+        "**/project.pj",
+
+        // Subversion
+        "**/.svn",
+        "**/.svn/**",
+
+        // Arch
+        "**/.arch-ids",
+        "**/.arch-ids/**",
+
+        // Bazaar
+        "**/.bzr",
+        "**/.bzr/**",
+
+        // SurroundSCM
+        "**/.MySCMServerInfo",
+
+        // Mac
+        "**/.DS_Store",
+
+        // Serena Dimensions Version 10
+        "**/.metadata",
+        "**/.metadata/**",
+
+        // Mercurial
+        "**/.hg",
+        "**/.hg/**",
+
+        // git
+        "**/.git",
+        "**/.git/**",
+        "**/.gitignore",
+
+        // BitKeeper
+        "**/BitKeeper",
+        "**/BitKeeper/**",
+        "**/ChangeSet",
+        "**/ChangeSet/**",
+
+        // darcs
+        "**/_darcs",
+        "**/_darcs/**",
+        "**/.darcsrepo",
+        "**/.darcsrepo/**",
+        "**/-darcs-backup*",
+        "**/.darcs-temp-mail"
+    };
+
     /**
      * String representation of the normalized include filters.
      * This is kept only for {@link #toString()} implementation.
@@ -122,7 +199,7 @@ final class Selector implements PathMatcher {
         if (!useDefaultExcludes) {
             return excludes;
         }
-        String[] defaults = DirectoryScanner.DEFAULTEXCLUDES;
+        String[] defaults = DEFAULT_EXCLUDES;
         if (excludes == null || excludes.length == 0) {
             return defaults;
         } else {
