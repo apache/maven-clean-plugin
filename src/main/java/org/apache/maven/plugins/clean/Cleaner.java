@@ -49,7 +49,9 @@ import org.apache.maven.api.plugin.Log;
  * @author Martin Desruisseaux
  */
 final class Cleaner implements FileVisitor<Path> {
-
+    /**
+     * Whether the host operating system is from the Windows family.
+     */
     private static final boolean ON_WINDOWS = (File.separatorChar == '\\');
 
     private static final SessionData.Key<Path> LAST_DIRECTORY_TO_DELETE =
@@ -171,13 +173,13 @@ final class Cleaner implements FileVisitor<Path> {
     }
 
     /**
-     * Deletes the specified directories and its contents.
+     * Deletes the specified directory and its contents.
      * Non-existing directories will be silently ignored.
      *
      * @param basedir the directory to delete, must not be {@code null}
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
-    public void delete(Path basedir) throws IOException {
+    public void delete(@Nonnull Path basedir) throws IOException {
         if (!Files.isDirectory(basedir)) {
             if (Files.notExists(basedir)) {
                 if (logger.isDebugEnabled()) {
@@ -193,7 +195,7 @@ final class Cleaner implements FileVisitor<Path> {
         var options = EnumSet.noneOf(FileVisitOption.class);
         if (followSymlinks) {
             options.add(FileVisitOption.FOLLOW_LINKS);
-            basedir = getCanonicalPath(basedir);
+            basedir = getCanonicalPath(basedir, null);
         }
         if (selector == null && !followSymlinks && fastDir != null && session != null) {
             // If anything wrong happens, we'll just use the usual deletion mechanism
@@ -259,6 +261,14 @@ final class Cleaner implements FileVisitor<Path> {
      */
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+        if (ON_WINDOWS && !followSymlinks && attrs.isOther()) {
+            /*
+             * MCLEAN-93: NTFS junctions have isDirectory() and isOther() attributes set.
+             * If not following symbolic links, then it should be handled as a file.
+             */
+            visitFile(dir, attrs);
+            return FileVisitResult.SKIP_SUBTREE;
+        }
         if (selector == null || selector.couldHoldSelected(dir)) {
             nonEmptyDirectoryLevels.clear(++currentDepth);
             return FileVisitResult.CONTINUE;
@@ -333,11 +343,30 @@ final class Cleaner implements FileVisitor<Path> {
         return FileVisitResult.CONTINUE;
     }
 
-    private static Path getCanonicalPath(Path path) {
+    /**
+     * Returns the real path of the given file. If the real path cannot be obtained,
+     * this method tries to get the real path of the parent and to append the rest of
+     * the filename.
+     *
+     * @param  path       the path to get as a canonical path
+     * @param  mainError  should be {@code null} (reserved to recursive calls of this method)
+     * @return the real path of the given path
+     * @throws IOException if the canonical path cannot be obtained
+     */
+    private static Path getCanonicalPath(final Path path, IOException mainError) throws IOException {
         try {
             return path.toRealPath();
         } catch (IOException e) {
-            return getCanonicalPath(path.getParent()).resolve(path.getFileName());
+            if (mainError == null) {
+                mainError = e;
+            } else {
+                mainError.addSuppressed(e);
+            }
+            final Path parent = path.getParent();
+            if (parent != null) {
+                return getCanonicalPath(parent, mainError).resolve(path.getFileName());
+            }
+            throw e;
         }
     }
 
