@@ -19,11 +19,10 @@
 package org.apache.maven.plugins.clean;
 
 import java.nio.file.Path;
-import java.util.Arrays;
 
 /**
  * Customizes the string representation of
- * <code>org.apache.maven.shared.model.fileset.FileSet</code> to return the
+ * {@code org.apache.maven.shared.model.fileset.FileSet} to return the
  * included and excluded files from the file-set's directory. Specifically,
  * <code>"file-set: <I>[directory]</I> (included: <I>[included files]</I>,
  * excluded: <I>[excluded files]</I>)"</code>
@@ -43,53 +42,87 @@ public class Fileset {
     private boolean useDefaultExcludes;
 
     /**
-     * @return {@link #directory}
+     * {@return the base directory}.
      */
     public Path getDirectory() {
         return directory;
     }
 
     /**
-     * @return {@link #includes}
+     * {@return the patterns of the file to include, or an empty array if unspecified}.
      */
     public String[] getIncludes() {
         return (includes != null) ? includes : new String[0];
     }
 
     /**
-     * @return {@link #excludes}
+     * {@return the patterns of the file to exclude, or an empty array if unspecified}.
      */
     public String[] getExcludes() {
         return (excludes != null) ? excludes : new String[0];
     }
 
     /**
-     * @return {@link #followSymlinks}
+     * {@return whether the base directory is excluded from the fileset}.
+     * This is {@code false} by default. The base directory can be excluded
+     * explicitly if the exclude patterns contains an empty string.
+     */
+    public boolean isBaseDirectoryExcluded() {
+        if (excludes != null) {
+            for (String pattern : excludes) {
+                if (pattern == null || pattern.isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * {@return whether to follow symbolic links}.
      */
     public boolean isFollowSymlinks() {
         return followSymlinks;
     }
 
     /**
-     * @return {@link #useDefaultExcludes}
+     * {@return whether to use a default set of excludes}.
      */
     public boolean isUseDefaultExcludes() {
         return useDefaultExcludes;
     }
 
     /**
-     * Retrieves the included and excluded files from this file-set's directory.
-     * Specifically, <code>"file-set: <I>[directory]</I> (included:
-     * <I>[included files]</I>, excluded: <I>[excluded files]</I>)"</code>
+     * Appends the elements of the given array in the given buffer.
+     * This is a helper method for {@link #toString()} implementations.
      *
-     * @return The included and excluded files from this file-set's directory.
+     * @param buffer the buffer where to add the elements
+     * @param label label identifying the array of elements to add
+     * @param patterns the elements to append, or {@code null} if none
+     */
+    static void append(StringBuilder buffer, String label, String[] patterns) {
+        buffer.append(label).append(": [");
+        if (patterns != null) {
+            for (int i = 0; i < patterns.length; i++) {
+                if (i != 0) {
+                    buffer.append(", ");
+                }
+                buffer.append(patterns[i]);
+            }
+        }
+        buffer.append(']');
+    }
+
+    /**
+     * {@return a string representation of the included and excluded files from this file-set's directory}.
      * Specifically, <code>"file-set: <I>[directory]</I> (included:
      * <I>[included files]</I>, excluded: <I>[excluded files]</I>)"</code>
-     * @see java.lang.Object#toString()
      */
     @Override
     public String toString() {
-        return "file set: " + getDirectory() + " (included: " + Arrays.asList(getIncludes()) + ", excluded: "
-                + Arrays.asList(getExcludes()) + ")";
+        var buffer = new StringBuilder("file set: ").append(getDirectory());
+        append(buffer.append(" ("), "included", getIncludes());
+        append(buffer.append(", "), "excluded", getExcludes());
+        return buffer.append(')').toString();
     }
 }

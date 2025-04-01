@@ -222,7 +222,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     @Override
     public void execute() {
         if (skip) {
-            getLog().info("Clean is skipped.");
+            logger.info("Clean is skipped.");
             return;
         }
 
@@ -236,7 +236,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
         } else {
             fastDir = null;
             if (fast) {
-                getLog().warn("Fast clean requires maven 3.3.1 or newer, "
+                logger.warn("Fast clean requires maven 3.3.1 or newer, "
                         + "or an explicit directory to be specified with the 'fastDir' configuration of "
                         + "this plugin, or the 'maven.clean.fastDir' user property to be set.");
             }
@@ -248,37 +248,22 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
             throw new IllegalArgumentException("Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
                     + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'.");
         }
-
-        Cleaner cleaner = new Cleaner(session, getLog(), isVerbose(), fastDir, fastMode);
-
+        final var cleaner =
+                new Cleaner(session, logger, isVerbose(), fastDir, fastMode, followSymLinks, failOnError, retryOnError);
         try {
             for (Path directoryItem : getDirectories()) {
                 if (directoryItem != null) {
-                    cleaner.delete(directoryItem, null, followSymLinks, failOnError, retryOnError);
+                    cleaner.delete(directoryItem);
                 }
             }
-
             if (filesets != null) {
                 for (Fileset fileset : filesets) {
                     if (fileset.getDirectory() == null) {
                         throw new MojoException("Missing base directory for " + fileset);
                     }
-                    final String[] includes = fileset.getIncludes();
-                    final String[] excludes = fileset.getExcludes();
-                    final boolean useDefaultExcludes = fileset.isUseDefaultExcludes();
-                    final GlobSelector selector;
-                    if ((includes != null && includes.length != 0)
-                            || (excludes != null && excludes.length != 0)
-                            || useDefaultExcludes) {
-                        selector = new GlobSelector(includes, excludes, useDefaultExcludes);
-                    } else {
-                        selector = null;
-                    }
-                    cleaner.delete(
-                            fileset.getDirectory(), selector, fileset.isFollowSymlinks(), failOnError, retryOnError);
+                    cleaner.delete(fileset);
                 }
             }
-
         } catch (IOException e) {
             throw new MojoException("Failed to clean project: " + e.getMessage(), e);
         }
@@ -290,7 +275,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * @return <code>true</code> if verbose output is enabled, <code>false</code> otherwise.
      */
     private boolean isVerbose() {
-        return (verbose != null) ? verbose : getLog().isDebugEnabled();
+        return (verbose != null) ? verbose : logger.isDebugEnabled();
     }
 
     /**
@@ -306,9 +291,5 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
             directories = new Path[] {directory, outputDirectory, testOutputDirectory, reportDirectory};
         }
         return directories;
-    }
-
-    private Log getLog() {
-        return logger;
     }
 }
