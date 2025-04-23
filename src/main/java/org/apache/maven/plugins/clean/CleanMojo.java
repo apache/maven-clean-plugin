@@ -30,18 +30,17 @@ import org.apache.maven.api.plugin.annotations.Parameter;
 
 /**
  * Goal which cleans the build.
+ * This attempts to clean a project's working directory of the files that were generated at build-time.
+ * By default, it discovers and deletes the directories configured in {@code project.build.directory},
+ * {@code project.build.outputDirectory}, {@code project.build.testOutputDirectory}, and
+ * {@code project.reporting.outputDirectory}.
+ *
  * <p>
- * This attempts to clean a project's working directory of the files that were generated at build-time. By default, it
- * discovers and deletes the directories configured in <code>project.build.directory</code>,
- * <code>project.build.outputDirectory</code>, <code>project.build.testOutputDirectory</code>, and
- * <code>project.reporting.outputDirectory</code>.
- * </p>
- * <p>
- * Files outside the default may also be included in the deletion by configuring the <code>filesets</code> tag.
+ * Files outside the default may also be included in the deletion by configuring the {@code filesets} tag.
  * </p>
  *
  * @author <a href="mailto:evenisse@maven.org">Emmanuel Venisse</a>
- * @see org.apache.maven.plugins.clean.Fileset
+ * @see Fileset
  * @since 2.0
  */
 @Mojo(name = "clean")
@@ -84,9 +83,10 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
 
     /**
      * Sets whether the plugin runs in verbose mode. As of plugin version 2.3, the default value is derived from Maven's
-     * global debug flag (compare command line switch <code>-X</code>). <br/>
-     * Starting with <b>3.0.0</b> the property has been renamed from <code>clean.verbose</code> to
-     * <code>maven.clean.verbose</code>.
+     * global debug flag (compare command line switch {@code -X}).
+     *
+     * <p>Starting with <b>3.0.0</b> the property has been renamed from {@code clean.verbose} to
+     * {@code maven.clean.verbose}.</p>
      *
      * @since 2.1
      */
@@ -119,11 +119,10 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
 
     /**
      * Sets whether the plugin should follow symbolic links while deleting files from the default output directories of
-     * the project. Not following symlinks requires more IO operations and heap memory, regardless whether symlinks are
-     * actually present. So projects with a huge output directory that knowingly does not contain symlinks can improve
-     * performance by setting this parameter to <code>true</code>. <br/>
-     * Starting with <code>3.0.0</code> the property has been renamed from <code>clean.followSymLinks</code> to
-     * <code>maven.clean.followSymLinks</code>.
+     * the project.
+     *
+     * <p>Starting with <b>3.0.0</b> the property has been renamed from {@code clean.followSymLinks} to
+     * {@code maven.clean.followSymLinks}.</p>
      *
      * @since 2.1
      */
@@ -131,9 +130,10 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private boolean followSymLinks;
 
     /**
-     * Disables the plugin execution. <br/>
-     * Starting with <code>3.0.0</code> the property has been renamed from <code>clean.skip</code> to
-     * <code>maven.clean.skip</code>.
+     * Disables the plugin execution.
+     *
+     * <p>Starting with <b>3.0.0</b> the property has been renamed from {@code clean.skip} to
+     * {@code maven.clean.skip}.</p>
      *
      * @since 2.2
      */
@@ -159,10 +159,11 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private boolean retryOnError;
 
     /**
-     * Disables the deletion of the default output directories configured for a project. If set to <code>true</code>,
-     * only the files/directories selected via the parameter {@link #filesets} will be deleted. <br/>
-     * Starting with <b>3.0.0</b> the property has been renamed from <code>clean.excludeDefaultDirectories</code> to
-     * <code>maven.clean.excludeDefaultDirectories</code>.
+     * Disables the deletion of the default output directories configured for a project. If set to {@code true},
+     * only the files/directories selected via the parameter {@link #filesets} will be deleted.
+     *
+     * <p>Starting with <b>3.0.0</b> the property has been renamed from {@code clean.excludeDefaultDirectories}
+     * to {@code maven.clean.excludeDefaultDirectories}.</p>
      *
      * @since 2.3
      */
@@ -170,8 +171,8 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private boolean excludeDefaultDirectories;
 
     /**
-     * Enables fast clean if possible. If set to <code>true</code>, when the plugin is executed, a directory to
-     * be deleted will be atomically moved inside the <code>maven.clean.fastDir</code> directory and a thread will
+     * Enables fast clean if possible. If set to {@code true}, when the plugin is executed, a directory to
+     * be deleted will be atomically moved inside the {@code maven.clean.fastDir} directory and a thread will
      * be launched to delete the needed files in the background.  When the build is completed, maven will wait
      * until all the files have been deleted.  If any problem occurs during the atomic move of the directories,
      * the plugin will default to the traditional deletion mechanism.
@@ -182,10 +183,10 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private boolean fast;
 
     /**
-     * When fast clean is specified, the <code>fastDir</code> property will be used as the location where directories
+     * When fast clean is specified, the {@code fastDir} property will be used as the location where directories
      * to be deleted will be moved prior to background deletion.  If not specified, the
-     * <code>${maven.multiModuleProjectDirectory}/target/.clean</code> directory will be used.  If the
-     * <code>${build.directory}</code> has been modified, you'll have to adjust this property explicitly.
+     * {@code ${maven.multiModuleProjectDirectory}/target/.clean} directory will be used.
+     * If the {@code ${build.directory}} has been modified, you'll have to adjust this property explicitly.
      * In order for fast clean to work correctly, this directory and the various directories that will be deleted
      * should usually reside on the same volume.  The exact conditions are system-dependent though, but if an atomic
      * move is not supported, the standard deletion mechanism will be used.
@@ -197,11 +198,11 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private Path fastDir;
 
     /**
-     * Mode to use when using fast clean.  Values are: <code>background</code> to start deletion immediately and
-     * waiting for all files to be deleted when the session ends, <code>at-end</code> to indicate that the actual
-     * deletion should be performed synchronously when the session ends, or <code>defer</code> to specify that
-     * the actual file deletion should be started in the background when the session ends.  This should only be used
-     * when maven is embedded in a long-running process.
+     * Mode to use when using fast clean.  Values are: {@code background} to start deletion immediately and
+     * waiting for all files to be deleted when the session ends, {@code at-end} to indicate that the actual
+     * deletion should be performed synchronously when the session ends, or {@code defer} to specify that
+     * the actual file deletion should be started in the background when the session ends.
+     * This should only be used when maven is embedded in a long-running process.
      *
      * @since 3.2
      * @see #fast
@@ -228,7 +229,9 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
 
         String multiModuleProjectDirectory =
                 session != null ? session.getSystemProperties().get("maven.multiModuleProjectDirectory") : null;
-        Path fastDir;
+
+        @SuppressWarnings("LocalVariableHidesMemberVariable")
+        final Path fastDir;
         if (fast && this.fastDir != null) {
             fastDir = this.fastDir;
         } else if (fast && multiModuleProjectDirectory != null) {
@@ -272,7 +275,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     /**
      * Indicates whether verbose output is enabled.
      *
-     * @return <code>true</code> if verbose output is enabled, <code>false</code> otherwise.
+     * @return {@code true} if verbose output is enabled, {@code false} otherwise.
      */
     private boolean isVerbose() {
         return (verbose != null) ? verbose : logger.isDebugEnabled();
@@ -281,7 +284,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     /**
      * Gets the directories to clean (if any). The returned array may contain null entries.
      *
-     * @return The directories to clean or an empty array if none, never <code>null</code>.
+     * @return The directories to clean or an empty array if none, never {@code null}.
      */
     private Path[] getDirectories() {
         Path[] directories;
