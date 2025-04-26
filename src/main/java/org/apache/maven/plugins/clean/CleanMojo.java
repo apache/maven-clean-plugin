@@ -130,6 +130,14 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private boolean followSymLinks;
 
     /**
+     * Whether to force the deletion of read-only files.
+     *
+     * @since 4.0.0-beta-3
+     */
+    @Parameter(property = "maven.clean.force", defaultValue = "false")
+    private boolean force;
+
+    /**
      * Disables the plugin execution.
      *
      * <p>Starting with <b>3.0.0</b> the property has been renamed from {@code clean.skip} to
@@ -251,8 +259,8 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
             throw new IllegalArgumentException("Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
                     + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'.");
         }
-        final var cleaner =
-                new Cleaner(session, logger, isVerbose(), fastDir, fastMode, followSymLinks, failOnError, retryOnError);
+        final var cleaner = new Cleaner(
+                session, logger, isVerbose(), fastDir, fastMode, followSymLinks, force, failOnError, retryOnError);
         try {
             for (Path directoryItem : getDirectories()) {
                 if (directoryItem != null) {

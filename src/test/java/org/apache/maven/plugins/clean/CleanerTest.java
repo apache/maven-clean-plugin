@@ -59,7 +59,7 @@ class CleanerTest {
     void deleteSucceedsDeeply(@TempDir Path tempDir) throws Exception {
         final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
         final Path file = createFile(basedir.resolve("file"));
-        final var cleaner = new Cleaner(null, log, false, null, null, false, true, false);
+        final var cleaner = new Cleaner(null, log, false, null, null, false, false, true, false);
         cleaner.delete(basedir);
         assertFalse(exists(basedir));
         assertFalse(exists(file));
@@ -74,7 +74,7 @@ class CleanerTest {
         // Remove the executable flag to prevent directory listing, which will result in a DirectoryNotEmptyException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rw-rw-r--");
         setPosixFilePermissions(basedir, permissions);
-        final var cleaner = new Cleaner(null, log, false, null, null, false, true, false);
+        final var cleaner = new Cleaner(null, log, false, null, null, false, false, true, false);
         final var exception = assertThrows(AccessDeniedException.class, () -> cleaner.delete(basedir));
         verify(log, times(1)).warn(any(CharSequence.class), any(Throwable.class));
         assertTrue(exception.getMessage().contains(basedir.toString()));
@@ -88,7 +88,7 @@ class CleanerTest {
         // Remove the executable flag to prevent directory listing, which will result in a DirectoryNotEmptyException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rw-rw-r--");
         setPosixFilePermissions(basedir, permissions);
-        final var cleaner = new Cleaner(null, log, false, null, null, false, true, true);
+        final var cleaner = new Cleaner(null, log, false, null, null, false, false, true, true);
         final var exception = assertThrows(AccessDeniedException.class, () -> cleaner.delete(basedir));
         assertTrue(exception.getMessage().contains(basedir.toString()));
     }
@@ -102,7 +102,7 @@ class CleanerTest {
         // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("r-xr-xr-x");
         setPosixFilePermissions(basedir, permissions);
-        final var cleaner = new Cleaner(null, log, false, null, null, false, false, false);
+        final var cleaner = new Cleaner(null, log, false, null, null, false, false, false, false);
         assertDoesNotThrow(() -> cleaner.delete(basedir));
         verify(log, times(1)).warn(any(CharSequence.class), any(Throwable.class));
         InOrder inOrder = inOrder(log);
@@ -120,7 +120,7 @@ class CleanerTest {
         // Remove the writable flag to prevent deletion of the file, which will result in an AccessDeniedException.
         final Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("r-xr-xr-x");
         setPosixFilePermissions(basedir, permissions);
-        final var cleaner = new Cleaner(null, log, false, null, null, false, false, false);
+        final var cleaner = new Cleaner(null, log, false, null, null, false, false, false, false);
         assertDoesNotThrow(() -> cleaner.delete(basedir));
         verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
     }
