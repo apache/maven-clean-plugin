@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 
+import org.apache.maven.api.plugin.Log;
 import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.testing.Basedir;
 import org.apache.maven.api.plugin.testing.InjectMojo;
@@ -40,17 +41,19 @@ import org.junit.jupiter.api.condition.OS;
 
 import static org.apache.maven.api.plugin.testing.MojoExtension.getBasedir;
 import static org.apache.maven.api.plugin.testing.MojoExtension.setVariableValueToObject;
-import static org.codehaus.plexus.util.IOUtil.copy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
  * Test the clean mojo.
  */
 @MojoTest
 public class CleanMojoTest {
+
+    private final Log log = mock(Log.class);
 
     /**
      * Tests the simple removal of directories
@@ -211,8 +214,8 @@ public class CleanMojoTest {
                     .start();
             process.waitFor();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            copy(process.getInputStream(), baos);
-            copy(process.getErrorStream(), baos);
+            process.getInputStream().transferTo(baos);
+            process.getErrorStream().transferTo(baos);
             if (!Files.exists(link)) {
                 throw new IOException("Unable to create junction: " + baos);
             }
@@ -241,7 +244,7 @@ public class CleanMojoTest {
     }
 
     private void testSymlink(LinkCreator linkCreator) throws Exception {
-        Cleaner cleaner = new Cleaner(null, null, false, null, null);
+        Cleaner cleaner = new Cleaner(null, log, false, null, null, false, true, false);
         Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
         Path dirWithLnk = testDir.resolve("dir");
         Path orgDir = testDir.resolve("org-dir");
@@ -254,7 +257,7 @@ public class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner.delete(dirWithLnk, null, false, true, false);
+        cleaner.delete(dirWithLnk);
         // verify
         assertTrue(Files.exists(file));
         assertFalse(Files.exists(jctDir));
@@ -267,7 +270,8 @@ public class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner.delete(dirWithLnk, null, true, true, false);
+        cleaner = new Cleaner(null, log, false, null, null, true, true, false);
+        cleaner.delete(dirWithLnk);
         // verify
         assertFalse(Files.exists(file));
         assertFalse(Files.exists(jctDir));
