@@ -244,7 +244,7 @@ public class CleanMojoTest {
     }
 
     private void testSymlink(LinkCreator linkCreator) throws Exception {
-        Cleaner cleaner = new Cleaner(null, log, false, null, null, false, true, false);
+        Cleaner cleaner = new Cleaner(null, log, false, null, null, false, false, true, false);
         Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
         Path dirWithLnk = testDir.resolve("dir");
         Path orgDir = testDir.resolve("org-dir");
@@ -270,7 +270,7 @@ public class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner = new Cleaner(null, log, false, null, null, true, true, false);
+        cleaner = new Cleaner(null, log, false, null, null, true, false, true, false);
         cleaner.delete(dirWithLnk);
         // verify
         assertFalse(Files.exists(file));
