@@ -89,6 +89,16 @@ final class Cleaner implements FileVisitor<Path> {
      */
     private final boolean listDeletedFiles;
 
+    /**
+     * Whether the last call to {@code tryDelete(Path)} really deleted the file.
+     * If this flag is {@code false} after {@link #tryDelete(Path)} returned {@code true},
+     * then the file has been deleted by some concurrent process before this cleaner plugin
+     * tried to delete the file. This flag is used only for reporting this fact in the logs.
+     *
+     * @see #logDelete(Path, BasicFileAttributes)
+     */
+    private boolean reallyDeletedLastFile;
+
     @Nonnull
     private final Path fastDir;
 
@@ -362,8 +372,8 @@ final class Cleaner implements FileVisitor<Path> {
                 canDelete = selector.matches(dir);
             }
         }
-        if (canDelete) {
-            if (tryDelete(dir) && listDeletedFiles) {
+        if (canDelete && tryDelete(dir)) {
+            if (listDeletedFiles) {
                 logDelete(dir, null);
             }
         } else {
@@ -414,7 +424,8 @@ final class Cleaner implements FileVisitor<Path> {
         while (file != null) {
             PosixFileAttributeView posix = Files.getFileAttributeView(file, PosixFileAttributeView.class);
             if (posix != null) {
-                var permissions = EnumSet.copyOf(posix.readAttributes().permissions());
+                EnumSet<PosixFilePermission> permissions =
+                        EnumSet.copyOf(posix.readAttributes().permissions());
                 if (permissions.add(PosixFilePermission.OWNER_WRITE)) {
                     posix.setPermissions(permissions);
                     return file;
@@ -444,14 +455,21 @@ final class Cleaner implements FileVisitor<Path> {
      * file does not exist or if an {@link IOException} occurred but {@link #failOnError} is
      * {@code false}.
      *
+     * <h4>Auxiliary information as side-effect</h4>
+     * This method sets the {@link #reallyDeletedLastFile} flag to whether this method really deleted the file.
+     * If that flag is {@code false} after this method returned {@code true}, then the file has been deleted by
+     * some concurrent process before this method tried to deleted the file.
+     * That flag is used for logging purpose only.
+     *
      * @param  file the file/directory to delete, must not be {@code null}
-     * @return whether the file has been deleted
+     * @return whether the file has been deleted or did not existed anymore by the time this method is invoked
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
     @SuppressWarnings("SleepWhileInLoop")
     private boolean tryDelete(final Path file) throws IOException {
         try {
-            return Files.deleteIfExists(file);
+            reallyDeletedLastFile = Files.deleteIfExists(file);
+            return true;
         } catch (IOException failure) {
             boolean tryWritable = force && failure instanceof AccessDeniedException;
             if (tryWritable || retryOnError) {
@@ -483,7 +501,8 @@ final class Cleaner implements FileVisitor<Path> {
                         }
                     }
                     try {
-                        return Files.deleteIfExists(file);
+                        reallyDeletedLastFile = Files.deleteIfExists(file);
+                        return true;
                     } catch (IOException again) {
                         tryWritable = force && failure instanceof AccessDeniedException;
                         if (isNewError(alreadyReported, again)) {
@@ -492,6 +511,7 @@ final class Cleaner implements FileVisitor<Path> {
                     }
                 }
             }
+            reallyDeletedLastFile = false; // As a matter of principle, but not really needed.
             if (logger.isWarnEnabled()) {
                 logger.warn("Failed to delete " + file, failure);
             }
@@ -520,15 +540,21 @@ final class Cleaner implements FileVisitor<Path> {
     private void logDelete(final Path file, final BasicFileAttributes attrs) {
         String message;
         if (attrs == null || attrs.isDirectory()) {
-            message = "Deleted directory " + file;
+            message = "Deleted directory ";
         } else if (attrs.isRegularFile()) {
-            message = "Deleted file " + file;
+            message = "Deleted file ";
         } else if (attrs.isSymbolicLink()) {
-            message = "Deleted dangling symlink " + file;
+            message = "Deleted dangling symlink ";
         } else {
-            message = "Deleted " + file;
+            message = "Deleted ";
         }
-        if (verbose) {
+        boolean info = verbose;
+        if (!reallyDeletedLastFile) {
+            info = true;
+            message = "Another process deleted concurrently" + message.substring(message.indexOf(' '));
+        }
+        message += file;
+        if (info) {
             logger.info(message);
         } else {
             logger.debug(message);

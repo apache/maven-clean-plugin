@@ -132,7 +132,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     /**
      * Whether to force the deletion of read-only files.
      *
-     * @since 4.0.0-beta-3
+     * @since 3.4.2
      */
     @Parameter(property = "maven.clean.force", defaultValue = "false")
     private boolean force;
