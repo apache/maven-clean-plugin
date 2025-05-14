@@ -250,7 +250,7 @@ class CleanMojoTest {
 
     private void testSymlink(LinkCreator linkCreator) throws Exception {
         // We use the SystemStreamLog() as the AbstractMojo class, because from there the Log is always provided
-        Cleaner cleaner = new Cleaner(null, new SystemStreamLog(), false, null, null);
+        Cleaner cleaner = new Cleaner(null, new SystemStreamLog(), false, null, null, false);
         Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
         Path dirWithLnk = testDir.resolve("dir");
         Path orgDir = testDir.resolve("org-dir");

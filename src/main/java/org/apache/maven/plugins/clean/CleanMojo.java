@@ -129,6 +129,14 @@ public class CleanMojo extends AbstractMojo {
     private boolean followSymLinks;
 
     /**
+     * Whether to force the deletion of read-only files.
+     *
+     * @since 3.4.2
+     */
+    @Parameter(property = "maven.clean.force", defaultValue = "false")
+    private boolean force;
+
+    /**
      * Disables the plugin execution. <br/>
      * Starting with <code>3.0.0</code> the property has been renamed from <code>clean.skip</code> to
      * <code>maven.clean.skip</code>.
@@ -249,7 +257,7 @@ public class CleanMojo extends AbstractMojo {
                     + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'.");
         }
 
-        Cleaner cleaner = new Cleaner(session, getLog(), isVerbose(), fastDir, fastMode);
+        Cleaner cleaner = new Cleaner(session, getLog(), isVerbose(), fastDir, fastMode, force);
 
         try {
             for (Path directoryItem : getDirectories()) {
