@@ -131,7 +131,7 @@ public class CleanMojo extends AbstractMojo {
     /**
      * Whether to force the deletion of read-only files.
      *
-     * @since 3.4.2
+     * @since 3.5.0
      */
     @Parameter(property = "maven.clean.force", defaultValue = "false")
     private boolean force;
