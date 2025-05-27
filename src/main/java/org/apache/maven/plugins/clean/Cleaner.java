@@ -23,14 +23,21 @@ import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.DosFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.maven.execution.ExecutionListener;
 import org.apache.maven.execution.MavenSession;
@@ -69,6 +76,13 @@ class Cleaner {
     private Log log;
 
     /**
+     * Whether to force the deletion of read-only files. Note that on Linux,
+     * {@link Files#delete(Path)} and {@link Files#deleteIfExists(Path)} delete read-only files
+     * but throw {@link AccessDeniedException} if the directory containing the file is read-only.
+     */
+    private final boolean force;
+
+    /**
      * Creates a new cleaner.
      *
      * @param session  The Maven session to be used.
@@ -76,8 +90,9 @@ class Cleaner {
      * @param verbose  Whether to perform verbose logging.
      * @param fastDir  The explicit configured directory or to be deleted in fast mode.
      * @param fastMode The fast deletion mode.
+     * @param force    whether to force the deletion of read-only files
      */
-    Cleaner(MavenSession session, final Log log, boolean verbose, Path fastDir, String fastMode) {
+    Cleaner(MavenSession session, final Log log, boolean verbose, Path fastDir, String fastMode, boolean force) {
         this.session = session;
         // This can't be null as the Cleaner gets it from the CleanMojo which gets it from AbstractMojo class, where it
         // is never null.
@@ -85,6 +100,7 @@ class Cleaner {
         this.fastDir = fastDir;
         this.fastMode = fastMode;
         this.verbose = verbose;
+        this.force = force;
     }
 
     /**
@@ -263,6 +279,38 @@ class Cleaner {
     }
 
     /**
+     * Makes the given file or directory writable.
+     * If the file is already writable, then this method tries to make the parent directory writable.
+     *
+     * @param file the path to the file or directory to make writable, or {@code null} if none
+     * @return the root path which has been made writable, or {@code null} if none
+     */
+    private static Path setWritable(Path file) throws IOException {
+        while (file != null) {
+            PosixFileAttributeView posix = Files.getFileAttributeView(file, PosixFileAttributeView.class);
+            if (posix != null) {
+                EnumSet<PosixFilePermission> permissions =
+                        EnumSet.copyOf(posix.readAttributes().permissions());
+                if (permissions.add(PosixFilePermission.OWNER_WRITE)) {
+                    posix.setPermissions(permissions);
+                    return file;
+                }
+            } else {
+                DosFileAttributeView dos = Files.getFileAttributeView(file, DosFileAttributeView.class);
+                if (dos == null) {
+                    return null; // Unknown type of file attributes.
+                }
+                // No need to update the parent directory because DOS read-only attribute does not apply to folders.
+                dos.setReadOnly(false);
+                return file;
+            }
+            // File was already writable. Maybe it is the parent directory which was not writable.
+            file = file.getParent();
+        }
+        return null;
+    }
+
+    /**
      * Deletes the specified file, directory. If the path denotes a symlink, only the link is removed, its target is
      * left untouched.
      *
@@ -276,21 +324,35 @@ class Cleaner {
         IOException failure = delete(file);
         if (failure != null) {
             boolean deleted = false;
-
-            if (retryOnError) {
-                if (ON_WINDOWS) {
-                    // try to release any locks held by non-closed files
-                    System.gc();
+            boolean tryWritable = force && failure instanceof AccessDeniedException;
+            if (tryWritable || retryOnError) {
+                final Set<Path> madeWritable; // Safety against never-ending loops.
+                if (force) {
+                    madeWritable = new HashSet<>();
+                    madeWritable.add(null); // For having `add(null)` to return `false`.
+                } else {
+                    madeWritable = null;
                 }
-
                 final int[] delays = {50, 250, 750};
-                for (int i = 0; !deleted && i < delays.length; i++) {
-                    try {
-                        Thread.sleep(delays[i]);
-                    } catch (InterruptedException e) {
-                        // ignore
+                int delayIndex = 0;
+                while (!deleted && delayIndex < delays.length) {
+                    if (tryWritable) {
+                        tryWritable = madeWritable.add(setWritable(file));
+                        // `true` if we successfully changed permission, in which case we will skip the delay.
+                    }
+                    if (!tryWritable) {
+                        if (ON_WINDOWS) {
+                            // Try to release any locks held by non-closed files.
+                            System.gc();
+                        }
+                        try {
+                            Thread.sleep(delays[delayIndex++]);
+                        } catch (InterruptedException e) {
+                            // ignore
+                        }
                     }
                     deleted = delete(file) == null || !exists(file);
+                    tryWritable = !deleted && force && failure instanceof AccessDeniedException;
                 }
             } else {
                 deleted = !exists(file);
