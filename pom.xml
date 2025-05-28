@@ -121,11 +121,6 @@ under the License.
       <version>1.5.0</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-xml</artifactId>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <profiles>
