@@ -168,7 +168,8 @@ public class CleanMojoTest {
     @InjectMojo(goal = "clean")
     public void testCleanLockedFile(CleanMojo mojo) throws Exception {
         File f = new File(getBasedir(), "buildDirectory/file.txt");
-        try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
+        try (RandomAccessFile raf = new RandomAccessFile(f, "rw");
+                FileChannel channel = raf.getChannel();
                 FileLock ignored = channel.lock()) {
             assertThrows(MojoException.class, () -> mojo.execute());
         }
@@ -191,7 +192,8 @@ public class CleanMojoTest {
         assertNotNull(mojo);
 
         File f = new File(getBasedir(), "buildDirectory/file.txt");
-        try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
+        try (RandomAccessFile raf = new RandomAccessFile(f, "rw");
+             FileChannel channel = raf.getChannel();
                 FileLock ignored = channel.lock()) {
             mojo.execute();
         }
