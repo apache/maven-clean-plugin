@@ -193,7 +193,7 @@ public class CleanMojoTest {
 
         File f = new File(getBasedir(), "buildDirectory/file.txt");
         try (RandomAccessFile raf = new RandomAccessFile(f, "rw");
-             FileChannel channel = raf.getChannel();
+                FileChannel channel = raf.getChannel();
                 FileLock ignored = channel.lock()) {
             mojo.execute();
         }
