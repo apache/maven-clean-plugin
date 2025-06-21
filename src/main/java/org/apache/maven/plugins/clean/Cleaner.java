@@ -20,6 +20,7 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -27,10 +28,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.DosFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayDeque;
 import java.util.BitSet;
 import java.util.Deque;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.apache.maven.api.Event;
@@ -81,6 +89,16 @@ final class Cleaner implements FileVisitor<Path> {
      */
     private final boolean listDeletedFiles;
 
+    /**
+     * Whether the last call to {@code tryDelete(Path)} really deleted the file.
+     * If this flag is {@code false} after {@link #tryDelete(Path)} returned {@code true},
+     * then the file has been deleted by some concurrent process before this cleaner plugin
+     * tried to delete the file. This flag is used only for reporting this fact in the logs.
+     *
+     * @see #logDelete(Path, BasicFileAttributes)
+     */
+    private boolean reallyDeletedLastFile;
+
     @Nonnull
     private final Path fastDir;
 
@@ -99,9 +117,30 @@ final class Cleaner implements FileVisitor<Path> {
 
     private boolean followSymlinks;
 
+    /**
+     * Whether to force the deletion of read-only files. Note that on Linux,
+     * {@link Files#delete(Path)} and {@link Files#deleteIfExists(Path)} delete read-only files
+     * but throw {@link AccessDeniedException} if the directory containing the file is read-only.
+     */
+    private final boolean force;
+
+    /**
+     * Whether the build stops if there are I/O errors.
+     */
     private final boolean failOnError;
 
+    /**
+     * Whether the plugin should undertake additional attempts (after a short delay) to delete a file
+     * if the first attempt failed. This is meant to help deleting files that are temporarily locked
+     * by third-party tools like virus scanners or search indexing.
+     */
     private final boolean retryOnError;
+
+    /**
+     * The delays (in milliseconds) if {@link #retryOnError} is {@code true}.
+     * The length of this array is the maximal number of new attempts.
+     */
+    private static final int[] RETRY_DELAYS = new int[] {50, 250, 750};
 
     /**
      * Number of files that we failed to delete.
@@ -131,6 +170,7 @@ final class Cleaner implements FileVisitor<Path> {
      * @param fastDir  the explicit configured directory or to be deleted in fast mode
      * @param fastMode the fast deletion mode
      * @param followSymlinks whether to follow symlinks
+     * @param force          whether to force the deletion of read-only files
      * @param failOnError    whether to abort with an exception in case a selected file/directory could not be deleted
      * @param retryOnError   whether to undertake additional delete attempts in case the first attempt failed
      */
@@ -142,6 +182,7 @@ final class Cleaner implements FileVisitor<Path> {
             @Nonnull Path fastDir,
             @Nonnull String fastMode,
             boolean followSymlinks,
+            boolean force,
             boolean failOnError,
             boolean retryOnError) {
         this.session = session;
@@ -150,6 +191,7 @@ final class Cleaner implements FileVisitor<Path> {
         this.fastDir = fastDir;
         this.fastMode = fastMode;
         this.followSymlinks = followSymlinks;
+        this.force = force;
         this.failOnError = failOnError;
         this.retryOnError = retryOnError;
         listDeletedFiles = verbose ? logger.isInfoEnabled() : logger.isDebugEnabled();
@@ -210,7 +252,7 @@ final class Cleaner implements FileVisitor<Path> {
         // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/.clean for example
         if (fastDir.toAbsolutePath().startsWith(baseDir.toAbsolutePath())) {
             try {
-                String prefix = baseDir.getFileName().toString() + ".";
+                String prefix = baseDir.getFileName().toString() + '.';
                 Path tmpDir = Files.createTempDirectory(baseDir.getParent(), prefix);
                 try {
                     Files.move(baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING);
@@ -330,8 +372,8 @@ final class Cleaner implements FileVisitor<Path> {
                 canDelete = selector.matches(dir);
             }
         }
-        if (canDelete) {
-            if (tryDelete(dir) && listDeletedFiles) {
+        if (canDelete && tryDelete(dir)) {
+            if (listDeletedFiles) {
                 logDelete(dir, null);
             }
         } else {
@@ -371,41 +413,105 @@ final class Cleaner implements FileVisitor<Path> {
     }
 
     /**
+     * Makes the given file or directory writable.
+     * If the file is already writable, then this method tries to make the parent directory writable.
+     *
+     * @param file the path to the file or directory to make writable, or {@code null} if none
+     * @param currentDepth 0 for the base directory, and decremented for each parent directory
+     * @return the root path which has been made writable, or {@code null} if none
+     */
+    private static Path setWritable(Path file, int currentDepth) throws IOException {
+        while (file != null) {
+            PosixFileAttributeView posix = Files.getFileAttributeView(file, PosixFileAttributeView.class);
+            if (posix != null) {
+                EnumSet<PosixFilePermission> permissions =
+                        EnumSet.copyOf(posix.readAttributes().permissions());
+                if (permissions.add(PosixFilePermission.OWNER_WRITE)) {
+                    posix.setPermissions(permissions);
+                    return file;
+                }
+            } else {
+                DosFileAttributeView dos = Files.getFileAttributeView(file, DosFileAttributeView.class);
+                if (dos == null) {
+                    return null; // Unknown type of file attributes.
+                }
+                // No need to update the parent directory because DOS read-only attribute does not apply to folders.
+                dos.setReadOnly(false);
+                return file;
+            }
+            // File was already writable. Maybe it is the parent directory which was not writable.
+            if (--currentDepth < 0) {
+                break;
+            }
+            file = file.getParent();
+        }
+        return null;
+    }
+
+    /**
      * Deletes the specified file or directory.
      * If the path denotes a symlink, only the link is removed. Its target is left untouched.
      * This method returns {@code true} if the file has been deleted, or {@code false} if the
      * file does not exist or if an {@link IOException} occurred but {@link #failOnError} is
      * {@code false}.
      *
+     * <h4>Auxiliary information as side-effect</h4>
+     * This method sets the {@link #reallyDeletedLastFile} flag to whether this method really deleted the file.
+     * If that flag is {@code false} after this method returned {@code true}, then the file has been deleted by
+     * some concurrent process before this method tried to deleted the file.
+     * That flag is used for logging purpose only.
+     *
      * @param  file the file/directory to delete, must not be {@code null}
-     * @return whether the file has been deleted
+     * @return whether the file has been deleted or did not existed anymore by the time this method is invoked
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
     @SuppressWarnings("SleepWhileInLoop")
     private boolean tryDelete(final Path file) throws IOException {
         try {
-            return Files.deleteIfExists(file);
+            reallyDeletedLastFile = Files.deleteIfExists(file);
+            return true;
         } catch (IOException failure) {
-            if (retryOnError) {
-                if (ON_WINDOWS) {
-                    // try to release any locks held by non-closed files
-                    System.gc();
+            boolean tryWritable = force && failure instanceof AccessDeniedException;
+            if (tryWritable || retryOnError) {
+                final Set<Path> madeWritable; // Safety against never-ending loops.
+                if (force) {
+                    madeWritable = new HashSet<>();
+                    madeWritable.add(null); // For having `add(null)` to return `false`.
+                } else {
+                    madeWritable = null;
                 }
-                for (int delay : new int[] {50, 250, 750}) {
-                    try {
-                        Thread.sleep(delay);
-                    } catch (InterruptedException e) {
-                        failure.addSuppressed(e);
-                        throw failure;
+                final var alreadyReported = new HashMap<Class<?>, Set<String>>(); // For avoiding repetition.
+                isNewError(alreadyReported, failure);
+                int delayIndex = 0;
+                while (delayIndex < RETRY_DELAYS.length) {
+                    if (tryWritable) {
+                        tryWritable = madeWritable.add(setWritable(file, currentDepth));
+                        // `true` if we successfully changed permission, in which case we will skip the delay.
+                    }
+                    if (!tryWritable) {
+                        if (ON_WINDOWS) {
+                            // Try to release any locks held by non-closed files.
+                            System.gc();
+                        }
+                        try {
+                            Thread.sleep(RETRY_DELAYS[delayIndex++]);
+                        } catch (InterruptedException e) {
+                            failure.addSuppressed(e);
+                            throw failure;
+                        }
                     }
                     try {
-                        return Files.deleteIfExists(file);
+                        reallyDeletedLastFile = Files.deleteIfExists(file);
+                        return true;
                     } catch (IOException again) {
-                        again.addSuppressed(failure);
-                        failure = again;
+                        tryWritable = force && failure instanceof AccessDeniedException;
+                        if (isNewError(alreadyReported, again)) {
+                            failure.addSuppressed(again);
+                        }
                     }
                 }
             }
+            reallyDeletedLastFile = false; // As a matter of principle, but not really needed.
             if (logger.isWarnEnabled()) {
                 logger.warn("Failed to delete " + file, failure);
             }
@@ -418,6 +524,13 @@ final class Cleaner implements FileVisitor<Path> {
     }
 
     /**
+     * Returns {@code true} if the given exception has not been reported before.
+     */
+    private static boolean isNewError(Map<Class<?>, Set<String>> reported, Exception e) {
+        return reported.computeIfAbsent(e.getClass(), (key) -> new HashSet<>()).add(e.getMessage());
+    }
+
+    /**
      * Reports that a file, directory or symbolic link has been deleted. This method should be invoked only
      * when {@link #tryDelete(Path)} returned {@code true} and {@link #listDeletedFiles} is {@code true}.
      *
@@ -427,15 +540,21 @@ final class Cleaner implements FileVisitor<Path> {
     private void logDelete(final Path file, final BasicFileAttributes attrs) {
         String message;
         if (attrs == null || attrs.isDirectory()) {
-            message = "Deleted directory " + file;
+            message = "Deleted directory ";
         } else if (attrs.isRegularFile()) {
-            message = "Deleted file " + file;
+            message = "Deleted file ";
         } else if (attrs.isSymbolicLink()) {
-            message = "Deleted dangling symlink " + file;
+            message = "Deleted dangling symlink ";
         } else {
-            message = "Deleted " + file;
+            message = "Deleted ";
         }
-        if (verbose) {
+        boolean info = verbose;
+        if (!reallyDeletedLastFile) {
+            info = true;
+            message = "Another process deleted concurrently" + message.substring(message.indexOf(' '));
+        }
+        message += file;
+        if (info) {
             logger.info(message);
         } else {
             logger.debug(message);
