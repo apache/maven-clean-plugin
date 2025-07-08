@@ -42,6 +42,11 @@ public class Fileset {
     private boolean useDefaultExcludes;
 
     /**
+     * Creates an initially empty file set.
+     */
+    public Fileset() {}
+
+    /**
      * {@return the base directory}.
      */
     public Path getDirectory() {
@@ -96,7 +101,7 @@ public class Fileset {
      * Appends the elements of the given array in the given buffer.
      * This is a helper method for {@link #toString()} implementations.
      *
-     * @param buffer the buffer where to add the elements
+     * @param buffer the buffer to add the elements to
      * @param label label identifying the array of elements to add
      * @param patterns the elements to append, or {@code null} if none
      */
