@@ -27,4 +27,4 @@ jobs:
     uses: apache/maven-gh-actions-shared/.github/workflows/maven-verify.yml@v4
     with:
       maven4-build: true
-      maven4-version: '4.0.0-rc-3' # the same as used in project
+      maven4-version: '4.0.0-rc-4' # the same as used in project
