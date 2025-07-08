@@ -32,6 +32,7 @@ import java.nio.file.attribute.DosFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Deque;
 import java.util.EnumSet;
@@ -105,6 +106,10 @@ final class Cleaner implements FileVisitor<Path> {
     @Nonnull
     private final String fastMode;
 
+    /**
+     * Combination of includes and excludes path matchers.
+     * A {@code null} value means to include everything.
+     */
     @Nullable
     private PathSelector selector;
 
@@ -205,7 +210,11 @@ final class Cleaner implements FileVisitor<Path> {
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
     public void delete(@Nonnull Fileset fileset) throws IOException {
-        selector = new PathSelector(fileset);
+        selector = new PathSelector(
+                fileset.getDirectory(),
+                Arrays.asList(fileset.getIncludes()),
+                Arrays.asList(fileset.getExcludes()),
+                fileset.isUseDefaultExcludes());
         if (selector.isEmpty()) {
             selector = null;
         }
