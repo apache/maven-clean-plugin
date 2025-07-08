@@ -106,7 +106,7 @@ final class Cleaner implements FileVisitor<Path> {
     private final String fastMode;
 
     @Nullable
-    private Selector selector;
+    private PathSelector selector;
 
     /**
      * Whether the base directory is excluded from the set of directories to delete.
@@ -205,7 +205,7 @@ final class Cleaner implements FileVisitor<Path> {
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
     public void delete(@Nonnull Fileset fileset) throws IOException {
-        selector = new Selector(fileset);
+        selector = new PathSelector(fileset);
         if (selector.isEmpty()) {
             selector = null;
         }

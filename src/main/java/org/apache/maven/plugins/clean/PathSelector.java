@@ -51,7 +51,7 @@ import java.util.Set;
  * @author Benjamin Bentmann
  * @author Martin Desruisseaux
  */
-final class Selector implements PathMatcher {
+final class PathSelector implements PathMatcher {
     /**
      * Patterns which should be excluded by default, like <abbr>SCM</abbr> files.
      *
@@ -177,7 +177,7 @@ final class Selector implements PathMatcher {
      *
      * @param fs the user-specified configuration
      */
-    Selector(Fileset fs) {
+    PathSelector(Fileset fs) {
         includePatterns = normalizePatterns(fs.getIncludes(), false);
         excludePatterns = normalizePatterns(addDefaultExcludes(fs.getExcludes(), fs.isUseDefaultExcludes()), true);
         baseDirectory = fs.getDirectory();
@@ -360,7 +360,7 @@ final class Selector implements PathMatcher {
 
     /**
      * {@return whether there is no include or exclude filters}.
-     * In such case, this {@code Selector} instance should be ignored.
+     * In such case, this {@code PathSelector} instance should be ignored.
      */
     boolean isEmpty() {
         return (includes.length | excludes.length) == 0;
