@@ -61,7 +61,7 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>4.0.0-rc-4</mavenVersion>
+    <mavenVersion>4.0.0-rc-5</mavenVersion>
     <javaVersion>17</javaVersion>
     <guavaVersion>33.4.6-jre</guavaVersion>
     <guiceVersion>6.0.0</guiceVersion>
