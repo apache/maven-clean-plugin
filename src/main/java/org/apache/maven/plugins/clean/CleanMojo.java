@@ -20,13 +20,19 @@ package org.apache.maven.plugins.clean;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
+import org.apache.maven.api.Project;
 import org.apache.maven.api.Session;
 import org.apache.maven.api.di.Inject;
 import org.apache.maven.api.plugin.Log;
 import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.annotations.Mojo;
 import org.apache.maven.api.plugin.annotations.Parameter;
+import org.apache.maven.api.services.ProjectManager;
 
 /**
  * Goal which cleans the build.
@@ -52,34 +58,31 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
 
     public static final String FAST_MODE_DEFER = "defer";
 
+    /**
+     * The logger where to send information about what the plugin is doing.
+     */
     @Inject
     private Log logger;
 
     /**
-     * This is where build results go.
+     * The directory where build results went.
      */
     @Parameter(defaultValue = "${project.build.directory}", readonly = true, required = true)
     private Path directory;
 
     /**
-     * This is where compiled classes go.
+     * The directory where compiled main classes went. This is usually a sub-directory
+     * of {@link #directory}, but could be configured by the user to another location.
      */
     @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
     private Path outputDirectory;
 
     /**
-     * This is where compiled test classes go.
+     * The directory where compiled test classes went. This is usually a sub-directory
+     * of {@link #directory}, but could be configured by the user to another location.
      */
     @Parameter(defaultValue = "${project.build.testOutputDirectory}", readonly = true, required = true)
     private Path testOutputDirectory;
-
-    /**
-     * This is where the site plugin generates its pages.
-     *
-     * @since 2.1.1
-     */
-    @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true, required = true)
-    private Path reportDirectory;
 
     /**
      * Sets whether the plugin runs in verbose mode. As of plugin version 2.3, the default value is derived from Maven's
@@ -218,15 +221,34 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     @Parameter(property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND)
     private String fastMode;
 
+    /**
+     * The current session. May be null during some tests.
+     */
     @Inject
     private Session session;
 
     /**
-     * Deletes file-sets in the following project build directory order: (source) directory, output directory, test
-     * directory, report directory, and then the additional file-sets.
+     * The current project instance.
+     */
+    @Inject
+    private Project project;
+
+    /**
+     * Deletes build directories and file-sets.
+     * Directories are deleted in the following order:
      *
-     * @throws MojoException When a directory failed to get deleted.
-     * @see org.apache.maven.api.plugin.Mojo#execute()
+     * <ol>
+     *   <li>Build directory ({@code ${project.build.directory}})</li>
+     *   <li>Main classes directory ({@code ${project.build.outputDirectory}})</li>
+     *   <li>Test classes directory ({@code ${project.build.testOutputDirectory}})</li>
+     *   <li>Directories specified in the {@code <targetPath>} child of {@code <source>} elements</li>
+     *   <li>Additional file-sets</li>
+     * </ol>
+     *
+     * Redundant directories are omitted. For example, the main classes directory will be skipped
+     * in the usual case where it is a sub-directory of the build directory.
+     *
+     * @throws MojoException if a directory cannot be deleted
      */
     @Override
     public void execute() {
@@ -263,9 +285,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
                 session, logger, isVerbose(), fastDir, fastMode, followSymLinks, force, failOnError, retryOnError);
         try {
             for (Path directoryItem : getDirectories()) {
-                if (directoryItem != null) {
-                    cleaner.delete(directoryItem);
-                }
+                cleaner.delete(directoryItem);
             }
             if (filesets != null) {
                 for (Fileset fileset : filesets) {
@@ -290,16 +310,38 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     }
 
     /**
-     * Gets the directories to clean (if any). The returned array may contain null entries.
-     *
-     * @return The directories to clean or an empty array if none, never {@code null}.
+     * {@return the default directories to clean, or an empty list if none}
+     * The list includes the directories specified in both the Maven 3 and Maven 4 ways.
+     * Null items and redundant directories (children of other items) are omitted.
      */
-    private Path[] getDirectories() {
-        Path[] directories;
+    private List<Path> getDirectories() {
         if (excludeDefaultDirectories) {
-            directories = new Path[0];
-        } else {
-            directories = new Path[] {directory, outputDirectory, testOutputDirectory, reportDirectory};
+            return List.of();
+        }
+
+        // Directories declared in the Maven 3 way.
+        var directories = new ArrayList<Path>(Arrays.asList(directory, outputDirectory, testOutputDirectory));
+
+        // Directories declared in the Maven 4 way, with <source> elements.
+        if (project != null && session != null) {
+            ProjectManager projectManager = session.getService(ProjectManager.class);
+            if (projectManager != null) {
+                projectManager.getSourceRoots(project).forEach((source) -> source.targetPath()
+                        .ifPresent((target) -> directories.add(target)));
+            }
+        }
+        /*
+         * Remove children of included parents. In the common case where the first element in the list is
+         * the parent of all other directories, these loops will do only one iteration over all elements.
+         */
+        directories.removeIf(Objects::isNull);
+        for (int i = 0; i < directories.size(); i++) {
+            final Path prefix = directories.get(i);
+            for (int j = directories.size(); --j >= 0; ) {
+                if (j != i && directories.get(j).startsWith(prefix)) {
+                    directories.remove(j); // Keep only the base directories.
+                }
+            }
         }
         return directories;
     }
