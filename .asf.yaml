@@ -30,7 +30,11 @@ github:
     rebase: true
   autolink_jira:
     - MCLEAN
-  del_branch_on_merge: true
+  protected_branches:
+    master: { }
+    maven-clean-plugin-3.x: { }
+  pull_requests:
+    del_branch_on_merge: true
   features:
     issues: true
 
@@ -38,4 +42,3 @@ notifications:
   commits: commits@maven.apache.org
   issues: issues@maven.apache.org
   pullrequests: issues@maven.apache.org
-  jira_options: link label
