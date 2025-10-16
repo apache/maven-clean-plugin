@@ -19,10 +19,12 @@
 package org.apache.maven.plugins.clean;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Customizes the string representation of
- * {@code org.apache.maven.shared.model.fileset.FileSet} to return the
+ * {@code org.apache.maven.api.model.FileSet} to return the
  * included and excluded files from the file-set's directory. Specifically,
  * <code>"file-set: <I>[directory]</I> (included: <I>[included files]</I>,
  * excluded: <I>[excluded files]</I>)"</code>
@@ -54,17 +56,37 @@ public class Fileset {
     }
 
     /**
-     * {@return the patterns of the file to include, or an empty array if unspecified}.
+     * {@return the patterns of the file to include, or an empty list if unspecified}.
      */
-    public String[] getIncludes() {
-        return (includes != null) ? includes : new String[0];
+    public List<String> getIncludes() {
+        return listWithoutNull(includes);
     }
 
     /**
-     * {@return the patterns of the file to exclude, or an empty array if unspecified}.
+     * {@return the patterns of the file to exclude, or an empty list if unspecified}.
      */
-    public String[] getExcludes() {
-        return (excludes != null) ? excludes : new String[0];
+    public List<String> getExcludes() {
+        return listWithoutNull(excludes);
+    }
+
+    /**
+     * {@return the content of the given array without null elements}.
+     * The existence of null elements has been observed in practice,
+     * not sure where they come from.
+     *
+     * @param patterns the {@link #includes} or {@link #excludes} array, or {@code null} if none
+     */
+    private static List<String> listWithoutNull(String[] patterns) {
+        if (patterns == null) {
+            return List.of();
+        }
+        var list = new ArrayList<String>(patterns.length);
+        for (String pattern : patterns) {
+            if (pattern != null) {
+                list.add(pattern);
+            }
+        }
+        return list;
     }
 
     /**
@@ -86,14 +108,14 @@ public class Fileset {
     /**
      * {@return whether to follow symbolic links}.
      */
-    public boolean isFollowSymlinks() {
+    public boolean followSymlinks() {
         return followSymlinks;
     }
 
     /**
      * {@return whether to use a default set of excludes}.
      */
-    public boolean isUseDefaultExcludes() {
+    public boolean useDefaultExcludes() {
         return useDefaultExcludes;
     }
 
@@ -105,15 +127,12 @@ public class Fileset {
      * @param label label identifying the array of elements to add
      * @param patterns the elements to append, or {@code null} if none
      */
-    static void append(StringBuilder buffer, String label, String[] patterns) {
+    private static void append(StringBuilder buffer, String label, List<String> patterns) {
         buffer.append(label).append(": [");
-        if (patterns != null) {
-            for (int i = 0; i < patterns.length; i++) {
-                if (i != 0) {
-                    buffer.append(", ");
-                }
-                buffer.append(patterns[i]);
-            }
+        String separator = "";
+        for (String pattern : patterns) {
+            buffer.append(separator).append(pattern);
+            separator = ", ";
         }
         buffer.append(']');
     }

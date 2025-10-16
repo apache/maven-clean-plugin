@@ -25,14 +25,15 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Deque;
 import java.util.EnumSet;
@@ -50,6 +51,7 @@ import org.apache.maven.api.SessionData;
 import org.apache.maven.api.annotations.Nonnull;
 import org.apache.maven.api.annotations.Nullable;
 import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.services.PathMatcherFactory;
 
 /**
  * Cleans directories.
@@ -107,11 +109,23 @@ final class Cleaner implements FileVisitor<Path> {
     private final String fastMode;
 
     /**
-     * Combination of includes and excludes path matchers.
-     * A {@code null} value means to include everything.
+     * The service to use for creating include and exclude filters.
+     * Used for setting a value to {@link #fileMatcher} and {@link #directoryMatcher}.
      */
-    @Nullable
-    private PathSelector selector;
+    @Nonnull
+    private final PathMatcherFactory matcherFactory;
+
+    /**
+     * Combination of includes and excludes path matchers applied on files.
+     */
+    @Nonnull
+    private PathMatcher fileMatcher;
+
+    /**
+     * Combination of includes and excludes path matchers applied on directories.
+     */
+    @Nonnull
+    private PathMatcher directoryMatcher;
 
     /**
      * Whether the base directory is excluded from the set of directories to delete.
@@ -120,6 +134,14 @@ final class Cleaner implements FileVisitor<Path> {
      */
     private boolean isBaseDirectoryExcluded;
 
+    /**
+     * Whether to follow symbolic links while deleting files from the directories.
+     * This value is specified by the <abbr>MOJO</abbr> plugin configuration,
+     * but can be overridden by {@link Fileset}.
+     *
+     * @see CleanMojo#followSymLinks
+     * @see Fileset#followSymlinks
+     */
     private boolean followSymlinks;
 
     /**
@@ -168,29 +190,35 @@ final class Cleaner implements FileVisitor<Path> {
 
     /**
      * Creates a new cleaner.
+     * By default, the cleaner has no include or exclude filters,
+     * does not exclude the base directory and does not follow symbolic links.
+     * These properties can be modified by {@link #delete(Fileset)}.
      *
-     * @param session  the Maven session to be used
-     * @param logger   the logger to use
-     * @param verbose  whether to perform verbose logging
-     * @param fastDir  the explicit configured directory or to be deleted in fast mode
-     * @param fastMode the fast deletion mode
-     * @param followSymlinks whether to follow symlinks
-     * @param force          whether to force the deletion of read-only files
-     * @param failOnError    whether to abort with an exception in case a selected file/directory could not be deleted
-     * @param retryOnError   whether to undertake additional delete attempts in case the first attempt failed
+     * @param session         the Maven session to be used
+     * @param matcherFactory  the service to use for creating include and exclude filters.
+     * @param logger          the logger to use
+     * @param verbose         whether to perform verbose logging
+     * @param fastDir         the explicit configured directory or to be deleted in fast mode
+     * @param fastMode        the fast deletion mode
+     * @param followSymlinks  whether to follow symlinks
+     * @param force           whether to force the deletion of read-only files
+     * @param failOnError     whether to abort with an exception in case a selected file/directory could not be deleted
+     * @param retryOnError    whether to undertake additional delete attempts in case the first attempt failed
      */
     @SuppressWarnings("checkstyle:ParameterNumber")
     Cleaner(
-            @Nonnull Session session,
+            @Nullable Session session,
+            @Nonnull PathMatcherFactory matcherFactory,
             @Nonnull Log logger,
             boolean verbose,
-            @Nonnull Path fastDir,
+            @Nullable Path fastDir,
             @Nonnull String fastMode,
             boolean followSymlinks,
             boolean force,
             boolean failOnError,
             boolean retryOnError) {
         this.session = session;
+        this.matcherFactory = matcherFactory;
         this.logger = logger;
         this.verbose = verbose;
         this.fastDir = fastDir;
@@ -201,31 +229,37 @@ final class Cleaner implements FileVisitor<Path> {
         this.retryOnError = retryOnError;
         listDeletedFiles = verbose ? logger.isInfoEnabled() : logger.isDebugEnabled();
         nonEmptyDirectoryLevels = new BitSet();
+        fileMatcher = matcherFactory.includesAll();
+        directoryMatcher = fileMatcher;
     }
 
     /**
      * Deletes the specified fileset.
+     * This method modifies the include and exclude filters,
+     * whether to exclude the base directory and whether to follow symbolic links.
      *
-     * @param fileset the fileset to delete, must not be {@code null}
-     * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
+     * @param fileset the fileset to delete
+     * @throws IOException if a file/directory could not be deleted and {@link #failOnError} is {@code true}
      */
     public void delete(@Nonnull Fileset fileset) throws IOException {
-        selector = new PathSelector(
-                fileset.getDirectory(),
-                Arrays.asList(fileset.getIncludes()),
-                Arrays.asList(fileset.getExcludes()),
-                fileset.isUseDefaultExcludes());
-        if (selector.isEmpty()) {
-            selector = null;
-        }
+        fileMatcher = matcherFactory.createPathMatcher(
+                fileset.getDirectory(), fileset.getIncludes(), fileset.getExcludes(), fileset.useDefaultExcludes());
+        directoryMatcher = matcherFactory.deriveDirectoryMatcher(fileMatcher);
         isBaseDirectoryExcluded = fileset.isBaseDirectoryExcluded();
-        followSymlinks = fileset.isFollowSymlinks();
+        followSymlinks = fileset.followSymlinks();
         delete(fileset.getDirectory());
     }
 
     /**
-     * Deletes the specified directory and its contents.
+     * Deletes the specified directory and its contents using the current configuration.
      * Non-existing directories will be silently ignored.
+     *
+     * <h4>Configuration</h4>
+     * The behavior of this method depends on the {@code Cleaner} configuration.
+     * Some configuration can be modified by calls to {@link #delete(Fileset)}.
+     * Therefore, for deleting files with the default configuration (no include
+     * or exclude filters, not following symbolic links), this method should be
+     * invoked first.
      *
      * @param basedir the directory to delete, must not be {@code null}
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
@@ -238,23 +272,31 @@ final class Cleaner implements FileVisitor<Path> {
                 }
                 return;
             }
-            throw new IOException("Invalid base directory " + basedir);
+            throw new NotDirectoryException("Invalid base directory " + basedir);
         }
         if (logger.isInfoEnabled()) {
-            logger.info("Deleting " + basedir + (selector != null ? " (" + selector + ")" : ""));
+            logger.info("Deleting " + basedir + (isClearAll() ? "" : " (" + fileMatcher + ')'));
         }
         var options = EnumSet.noneOf(FileVisitOption.class);
         if (followSymlinks) {
             options.add(FileVisitOption.FOLLOW_LINKS);
             basedir = getCanonicalPath(basedir, null);
         }
-        if (selector == null && !followSymlinks && fastDir != null && session != null) {
+        if (isClearAll() && !followSymlinks && fastDir != null && session != null) {
             // If anything wrong happens, we'll just use the usual deletion mechanism
             if (fastDelete(basedir)) {
                 return;
             }
         }
         Files.walkFileTree(basedir, options, Integer.MAX_VALUE, this);
+    }
+
+    /**
+     * {@return whether {@link #fileMatcher} matches all files}.
+     * This is a required condition for allowing the use of {@link #fastDelete(Path)}.
+     */
+    private boolean isClearAll() {
+        return fileMatcher == matcherFactory.includesAll();
     }
 
     private boolean fastDelete(Path baseDir) {
@@ -320,7 +362,7 @@ final class Cleaner implements FileVisitor<Path> {
             visitFile(dir, attrs);
             return FileVisitResult.SKIP_SUBTREE;
         }
-        if (selector == null || selector.couldHoldSelected(dir)) {
+        if (directoryMatcher.matches(dir)) {
             nonEmptyDirectoryLevels.clear(++currentDepth);
             return FileVisitResult.CONTINUE;
         } else {
@@ -336,7 +378,7 @@ final class Cleaner implements FileVisitor<Path> {
      */
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-        if ((selector == null || selector.matches(file)) && tryDelete(file)) {
+        if (fileMatcher.matches(file) && tryDelete(file)) {
             if (listDeletedFiles) {
                 logDelete(file, attrs);
             }
@@ -377,8 +419,8 @@ final class Cleaner implements FileVisitor<Path> {
             canDelete = false;
         } else {
             canDelete &= (currentDepth != 0 || !isBaseDirectoryExcluded);
-            if (canDelete && selector != null) {
-                canDelete = selector.matches(dir);
+            if (canDelete) {
+                canDelete = fileMatcher.matches(dir);
             }
         }
         if (canDelete && tryDelete(dir)) {

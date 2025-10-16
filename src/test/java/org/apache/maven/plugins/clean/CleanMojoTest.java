@@ -34,6 +34,8 @@ import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.testing.Basedir;
 import org.apache.maven.api.plugin.testing.InjectMojo;
 import org.apache.maven.api.plugin.testing.MojoTest;
+import org.apache.maven.api.services.PathMatcherFactory;
+import org.apache.maven.impl.DefaultPathMatcherFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -56,6 +58,15 @@ class CleanMojoTest {
     private final Log log = mock(Log.class);
 
     /**
+     * The factory to use for creating patch matcher.
+     * The actual implementation is used rather than a mock because filtering is an important part
+     * of this plugin and is tedious to test. Therefore, it is hard to guarantee that the tests of
+     * {@code PathMatcherFactory} in Maven core are sufficient, and we want this plugin to test it
+     * more.
+     */
+    private final PathMatcherFactory matcherFactory = new DefaultPathMatcherFactory();
+
+    /**
      * Tests the simple removal of directories
      *
      * @throws Exception in case of an error.
@@ -66,9 +77,9 @@ class CleanMojoTest {
     void basicClean(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertFalse(checkExists(getBasedir() + "/buildDirectory"), "Directory exists");
-        assertFalse(checkExists(getBasedir() + "/buildOutputDirectory"), "Directory exists");
-        assertFalse(checkExists(getBasedir() + "/buildTestDirectory"), "Directory exists");
+        assertFalse(checkExists("buildDirectory"), "Directory exists");
+        assertFalse(checkExists("buildOutputDirectory"), "Directory exists");
+        assertFalse(checkExists("buildTestDirectory"), "Directory exists");
     }
 
     /**
@@ -82,9 +93,9 @@ class CleanMojoTest {
     void cleanNestedStructure(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertFalse(checkExists(getBasedir() + "/target"));
-        assertFalse(checkExists(getBasedir() + "/target/classes"));
-        assertFalse(checkExists(getBasedir() + "/target/test-classes"));
+        assertFalse(checkExists("target"));
+        assertFalse(checkExists("target/classes"));
+        assertFalse(checkExists("target/test-classes"));
     }
 
     /**
@@ -99,10 +110,10 @@ class CleanMojoTest {
     void cleanEmptyDirectories(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure"));
-        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure/file.txt"));
-        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure/outputDirectory"));
-        assertTrue(checkExists(getBasedir() + "/testDirectoryStructure/outputDirectory/file.txt"));
+        assertTrue(checkExists("testDirectoryStructure"));
+        assertTrue(checkExists("testDirectoryStructure/file.txt"));
+        assertTrue(checkExists("testDirectoryStructure/outputDirectory"));
+        assertTrue(checkExists("testDirectoryStructure/outputDirectory/file.txt"));
     }
 
     /**
@@ -117,18 +128,18 @@ class CleanMojoTest {
         mojo.execute();
 
         // fileset 1
-        assertTrue(checkExists(getBasedir() + "/target"));
-        assertTrue(checkExists(getBasedir() + "/target/classes"));
-        assertFalse(checkExists(getBasedir() + "/target/test-classes"));
-        assertTrue(checkExists(getBasedir() + "/target/subdir"));
-        assertFalse(checkExists(getBasedir() + "/target/classes/file.txt"));
-        assertTrue(checkEmpty(getBasedir() + "/target/classes"));
-        assertFalse(checkEmpty(getBasedir() + "/target/subdir"));
-        assertTrue(checkExists(getBasedir() + "/target/subdir/file.txt"));
+        assertTrue(checkExists("target"));
+        assertTrue(checkExists("target/classes"));
+        assertFalse(checkExists("target/test-classes"));
+        assertTrue(checkExists("target/subdir"));
+        assertFalse(checkExists("target/classes/file.txt"));
+        assertTrue(checkEmpty("target/classes"));
+        assertFalse(checkEmpty("target/subdir"));
+        assertTrue(checkExists("target/subdir/file.txt"));
 
         // fileset 2
-        assertTrue(checkExists(getBasedir() + "/" + "buildOutputDirectory"));
-        assertFalse(checkExists(getBasedir() + "/" + "buildOutputDirectory/file.txt"));
+        assertTrue(checkExists("buildOutputDirectory"));
+        assertFalse(checkExists("buildOutputDirectory/file.txt"));
     }
 
     /**
@@ -154,7 +165,7 @@ class CleanMojoTest {
     void missingDirectory(CleanMojo mojo) throws Exception {
         mojo.execute();
 
-        assertFalse(checkExists(getBasedir() + "/does-not-exist"));
+        assertFalse(checkExists("does-not-exist"));
     }
 
     /**
@@ -244,7 +255,7 @@ class CleanMojoTest {
     }
 
     private void testSymlink(LinkCreator linkCreator) throws Exception {
-        Cleaner cleaner = new Cleaner(null, log, false, null, null, false, false, true, false);
+        Cleaner cleaner = new Cleaner(null, matcherFactory, log, false, null, null, false, false, true, false);
         Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
         Path dirWithLnk = testDir.resolve("dir");
         Path orgDir = testDir.resolve("org-dir");
@@ -270,7 +281,7 @@ class CleanMojoTest {
         Files.write(file, Collections.singleton("Hello world"));
         linkCreator.createLink(jctDir, orgDir);
         // delete
-        cleaner = new Cleaner(null, log, false, null, null, true, false, true, false);
+        cleaner = new Cleaner(null, matcherFactory, log, false, null, null, true, false, true, false);
         cleaner.delete(dirWithLnk);
         // verify
         assertFalse(Files.exists(file));
@@ -283,16 +294,17 @@ class CleanMojoTest {
      * @param dir a dir or a file
      * @return true if a file/dir exists, false otherwise
      */
-    private boolean checkExists(String dir) {
-        return new File(new File(dir).getAbsolutePath()).exists();
+    private static boolean checkExists(String dir) {
+        return Files.exists(Path.of(getBasedir(), dir));
     }
 
     /**
      * @param dir a directory
      * @return true if a dir is empty, false otherwise
      */
-    private boolean checkEmpty(String dir) {
-        File[] files = new File(dir).listFiles();
+    private static boolean checkEmpty(String dir) {
+        Path path = Path.of(getBasedir(), dir);
+        File[] files = path.toFile().listFiles();
         return files == null || files.length == 0;
     }
 }
