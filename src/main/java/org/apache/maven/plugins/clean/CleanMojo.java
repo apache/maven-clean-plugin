@@ -34,6 +34,7 @@ import org.apache.maven.api.plugin.Log;
 import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.annotations.Mojo;
 import org.apache.maven.api.plugin.annotations.Parameter;
+import org.apache.maven.api.services.PathMatcherFactory;
 import org.apache.maven.api.services.ProjectManager;
 
 /**
@@ -236,6 +237,12 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private Project project;
 
     /**
+     * The service to use for creating include and exclude filters.
+     */
+    @Inject
+    private PathMatcherFactory matcherFactory;
+
+    /**
      * Deletes build directories and file-sets.
      * Directories are deleted in the following order:
      *
@@ -284,7 +291,16 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
                     + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'.");
         }
         final var cleaner = new Cleaner(
-                session, logger, isVerbose(), fastDir, fastMode, followSymLinks, force, failOnError, retryOnError);
+                session,
+                matcherFactory,
+                logger,
+                isVerbose(),
+                fastDir,
+                fastMode,
+                followSymLinks,
+                force,
+                failOnError,
+                retryOnError);
         try {
             for (Path directoryItem : getDirectories()) {
                 cleaner.delete(directoryItem);
