@@ -28,57 +28,44 @@ import java.nio.file.Files;
 import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
-import java.util.ArrayDeque;
 import java.util.BitSet;
-import java.util.Deque;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import org.apache.maven.api.Event;
-import org.apache.maven.api.EventType;
-import org.apache.maven.api.Listener;
-import org.apache.maven.api.Session;
-import org.apache.maven.api.SessionData;
 import org.apache.maven.api.annotations.Nonnull;
-import org.apache.maven.api.annotations.Nullable;
 import org.apache.maven.api.plugin.Log;
 import org.apache.maven.api.services.PathMatcherFactory;
 
 /**
- * Cleans directories.
+ * Cleans directories. This base class deletes the files in the current thread.
+ * The {@link BackgroundCleaner} subclass adds the capability to run in background.
+ *
+ * <h4>Limitations</h4>
+ * This class is not thread-safe: each instance shall be be executed in only one thread at a time.
+ * All directories specified as {@link Path} shall be deleted before directories specified as {@link Fileset},
+ * because the {@link Path} deletions rely on default values that are modified by {@link Fileset} deletions.
  *
  * @author Benjamin Bentmann
  * @author Martin Desruisseaux
  */
-final class Cleaner implements FileVisitor<Path> {
+class Cleaner implements FileVisitor<Path> {
     /**
      * Whether the host operating system is from the Windows family.
      */
     private static final boolean ON_WINDOWS = (File.separatorChar == '\\');
 
-    private static final SessionData.Key<Path> LAST_DIRECTORY_TO_DELETE =
-            SessionData.key(Path.class, Cleaner.class.getName() + ".lastDirectoryToDelete");
-
-    /**
-     * The maven session. This is typically non-null in a real run, but it can be during unit tests.
-     */
-    @Nonnull
-    private final Session session;
-
     /**
      * The logger where to send information or warning messages.
      */
     @Nonnull
-    private final Log logger;
+    protected final Log logger;
 
     /**
      * Whether to send to the logger some information that would normally be at the "debug" level.
@@ -101,12 +88,6 @@ final class Cleaner implements FileVisitor<Path> {
      * @see #logDelete(Path, BasicFileAttributes)
      */
     private boolean reallyDeletedLastFile;
-
-    @Nonnull
-    private final Path fastDir;
-
-    @Nonnull
-    private final String fastMode;
 
     /**
      * The service to use for creating include and exclude filters.
@@ -181,7 +162,7 @@ final class Cleaner implements FileVisitor<Path> {
      * A bit is used for each directory level, with {@link #currentDepth}
      * telling which bit is for the current directory.
      */
-    private final BitSet nonEmptyDirectoryLevels;
+    private final BitSet nonEmptyDirectoryLevels = new BitSet();
 
     /**
      * 0 for the base directory, and incremented for each subdirectory.
@@ -194,54 +175,72 @@ final class Cleaner implements FileVisitor<Path> {
      * does not exclude the base directory and does not follow symbolic links.
      * These properties can be modified by {@link #delete(Fileset)}.
      *
-     * @param session         the Maven session to be used
      * @param matcherFactory  the service to use for creating include and exclude filters.
      * @param logger          the logger to use
      * @param verbose         whether to perform verbose logging
-     * @param fastDir         the explicit configured directory or to be deleted in fast mode
-     * @param fastMode        the fast deletion mode
      * @param followSymlinks  whether to follow symlinks
      * @param force           whether to force the deletion of read-only files
      * @param failOnError     whether to abort with an exception in case a selected file/directory could not be deleted
      * @param retryOnError    whether to undertake additional delete attempts in case the first attempt failed
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
     Cleaner(
-            @Nullable Session session,
             @Nonnull PathMatcherFactory matcherFactory,
             @Nonnull Log logger,
             boolean verbose,
-            @Nullable Path fastDir,
-            @Nonnull String fastMode,
             boolean followSymlinks,
             boolean force,
             boolean failOnError,
             boolean retryOnError) {
-        this.session = session;
         this.matcherFactory = matcherFactory;
         this.logger = logger;
         this.verbose = verbose;
-        this.fastDir = fastDir;
-        this.fastMode = fastMode;
         this.followSymlinks = followSymlinks;
         this.force = force;
         this.failOnError = failOnError;
         this.retryOnError = retryOnError;
         listDeletedFiles = verbose ? logger.isInfoEnabled() : logger.isDebugEnabled();
-        nonEmptyDirectoryLevels = new BitSet();
         fileMatcher = matcherFactory.includesAll();
         directoryMatcher = fileMatcher;
     }
 
     /**
-     * Deletes the specified fileset.
+     * Creates a new cleaner with the configuration of the given cleaner as it was a construction time.
+     * An exception is the {@link #followSymlinks} flag which is set to {@code false}. This constructor
+     * is invoked by {@link BackgroundCleaner} before to invoke {@link #delete(Path)} at a moment which
+     * is potentially after some {@link #delete(Fileset)} executions. Because {@link BackgroundCleaner}
+     * can be used only when {@link #followSymlinks} is {@code false}, we know that this flag can be
+     * cleared unconditionally.
+     *
+     * @param other the cleaner from which to copy the configuration
+     */
+    Cleaner(Cleaner other) {
+        // Copy only final fields.
+        matcherFactory = other.matcherFactory;
+        logger = other.logger;
+        verbose = other.verbose;
+        force = other.force;
+        failOnError = other.failOnError;
+        retryOnError = other.retryOnError;
+        listDeletedFiles = other.listDeletedFiles;
+
+        // Non-final fields.
+        fileMatcher = matcherFactory.includesAll();
+        directoryMatcher = fileMatcher;
+    }
+
+    /**
+     * Deletes the specified fileset in the current thread.
      * This method modifies the include and exclude filters,
      * whether to exclude the base directory and whether to follow symbolic links.
+     *
+     * <h4>Configuration</h4>
+     * {@link Fileset} deletions should be done after all {@link Path} deletions,
+     * because this method modifies this {@code Cleaner} configuration.
      *
      * @param fileset the fileset to delete
      * @throws IOException if a file/directory could not be deleted and {@link #failOnError} is {@code true}
      */
-    public void delete(@Nonnull Fileset fileset) throws IOException {
+    public final void delete(@Nonnull Fileset fileset) throws IOException {
         fileMatcher = matcherFactory.createPathMatcher(
                 fileset.getDirectory(), fileset.getIncludes(), fileset.getExcludes(), fileset.useDefaultExcludes());
         directoryMatcher = matcherFactory.deriveDirectoryMatcher(fileMatcher);
@@ -252,7 +251,7 @@ final class Cleaner implements FileVisitor<Path> {
 
     /**
      * Deletes the specified directory and its contents using the current configuration.
-     * Non-existing directories will be silently ignored.
+     * Non-existing directories will be ignored with a warning logged at the debug level.
      *
      * <h4>Configuration</h4>
      * The behavior of this method depends on the {@code Cleaner} configuration.
@@ -264,28 +263,35 @@ final class Cleaner implements FileVisitor<Path> {
      * @param basedir the directory to delete, must not be {@code null}
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
-    public void delete(@Nonnull Path basedir) throws IOException {
+    public final void delete(@Nonnull Path basedir) throws IOException {
         if (!Files.isDirectory(basedir)) {
             if (Files.notExists(basedir)) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Skipping non-existing directory " + basedir);
-                }
+                logger.debug("Skipping non-existing directory \"" + basedir + "\".");
                 return;
             }
-            throw new NotDirectoryException("Invalid base directory " + basedir);
+            throw new NotDirectoryException("Invalid base directory \"" + basedir + "\".");
         }
         if (logger.isInfoEnabled()) {
-            logger.info("Deleting " + basedir + (isClearAll() ? "" : " (" + fileMatcher + ')'));
+            StringBuilder message =
+                    new StringBuilder("Deleting \"").append(basedir).append('"');
+            if (!isClearAll()) {
+                message.append(" (").append(fileMatcher).append(')');
+            }
+            logger.info(message.append('.').toString());
         }
         var options = EnumSet.noneOf(FileVisitOption.class);
         if (followSymlinks) {
             options.add(FileVisitOption.FOLLOW_LINKS);
             basedir = getCanonicalPath(basedir, null);
         }
-        if (isClearAll() && !followSymlinks && fastDir != null && session != null) {
+        if (isClearAll() && !followSymlinks) {
             // If anything wrong happens, we'll just use the usual deletion mechanism
-            if (fastDelete(basedir)) {
-                return;
+            try {
+                if (fastDelete(basedir)) {
+                    return;
+                }
+            } catch (IOException e) {
+                logger.debug(fastDeleteError(e), e);
             }
         }
         Files.walkFileTree(basedir, options, Integer.MAX_VALUE, this);
@@ -299,53 +305,23 @@ final class Cleaner implements FileVisitor<Path> {
         return fileMatcher == matcherFactory.includesAll();
     }
 
-    private boolean fastDelete(Path baseDir) {
-        // Handle the case where we use ${maven.multiModuleProjectDirectory}/target/.clean for example
-        if (fastDir.toAbsolutePath().startsWith(baseDir.toAbsolutePath())) {
-            try {
-                String prefix = baseDir.getFileName().toString() + '.';
-                Path tmpDir = Files.createTempDirectory(baseDir.getParent(), prefix);
-                try {
-                    Files.move(baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING);
-                    if (session != null) {
-                        session.getData().set(LAST_DIRECTORY_TO_DELETE, baseDir);
-                    }
-                    baseDir = tmpDir;
-                } catch (IOException e) {
-                    Files.delete(tmpDir);
-                    throw e;
-                }
-            } catch (IOException e) {
-                logger.debug("Unable to fast delete directory", e);
-                return false;
-            }
-        }
-        // Create fastDir and the needed parents if needed
-        try {
-            if (!Files.isDirectory(fastDir)) {
-                Files.createDirectories(fastDir);
-            }
-        } catch (IOException e) {
-            logger.debug(
-                    "Unable to fast delete directory as the path " + fastDir
-                            + " does not point to a directory or cannot be created",
-                    e);
-            return false;
-        }
-        try {
-            Path tmpDir = Files.createTempDirectory(fastDir, "");
-            Path dstDir = tmpDir.resolve(baseDir.getFileName());
-            // Note that by specifying the ATOMIC_MOVE, we expect an exception to be thrown
-            // if the path leads to a directory on another mountpoint.  If this is the case
-            // or any other exception occurs, an exception will be thrown in which case
-            // the method will return false and the usual deletion will be performed.
-            Files.move(baseDir, dstDir, StandardCopyOption.ATOMIC_MOVE);
-            BackgroundCleaner.delete(this, tmpDir, fastMode);
-            return true;
-        } catch (IOException e) {
-            logger.debug("Unable to fast delete directory", e);
-            return false;
-        }
+    /**
+     * Deletes the specified directory and its contents in a background thread.
+     * The default implementation returns {@code false}.
+     *
+     * @param basedir the directory to delete, must not be {@code null}
+     * @return whether this method was able to register the background task
+     * @throws IOException if an error occurred while preparing the task before execution in a background thread
+     */
+    boolean fastDelete(Path baseDir) throws IOException {
+        return false;
+    }
+
+    /**
+     * Returns an error message to show to user if the fast delete failed.
+     */
+    String fastDeleteError(IOException e) {
+        return e.toString();
     }
 
     /**
@@ -609,148 +585,6 @@ final class Cleaner implements FileVisitor<Path> {
             logger.info(message);
         } else {
             logger.debug(message);
-        }
-    }
-
-    private static class BackgroundCleaner extends Thread {
-
-        private static BackgroundCleaner instance;
-
-        private final Deque<Path> filesToDelete = new ArrayDeque<>();
-
-        private final Cleaner cleaner;
-
-        private final String fastMode;
-
-        private static final int NEW = 0;
-        private static final int RUNNING = 1;
-        private static final int STOPPED = 2;
-
-        private int status = NEW;
-
-        public static void delete(Cleaner cleaner, Path dir, String fastMode) {
-            synchronized (BackgroundCleaner.class) {
-                if (instance == null || !instance.doDelete(dir)) {
-                    instance = new BackgroundCleaner(cleaner, dir, fastMode);
-                }
-            }
-        }
-
-        static void sessionEnd() {
-            synchronized (BackgroundCleaner.class) {
-                if (instance != null) {
-                    instance.doSessionEnd();
-                }
-            }
-        }
-
-        private BackgroundCleaner(Cleaner cleaner, Path dir, String fastMode) {
-            super("mvn-background-cleaner");
-            this.cleaner = cleaner;
-            this.fastMode = fastMode;
-            init(cleaner.fastDir, dir);
-        }
-
-        @Override
-        public void run() {
-            var options = EnumSet.noneOf(FileVisitOption.class);
-            if (cleaner.followSymlinks) {
-                options.add(FileVisitOption.FOLLOW_LINKS);
-            }
-            Path basedir;
-            while ((basedir = pollNext()) != null) {
-                try {
-                    Files.walkFileTree(basedir, options, Integer.MAX_VALUE, cleaner);
-                } catch (IOException e) {
-                    // do not display errors
-                }
-            }
-        }
-
-        synchronized void init(Path fastDir, Path dir) {
-            if (Files.isDirectory(fastDir)) {
-                try {
-                    try (Stream<Path> children = Files.list(fastDir)) {
-                        children.forEach(this::doDelete);
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            doDelete(dir);
-        }
-
-        synchronized Path pollNext() {
-            Path basedir = filesToDelete.poll();
-            if (basedir == null) {
-                if (cleaner.session != null) {
-                    SessionData data = cleaner.session.getData();
-                    Path lastDir = data.get(LAST_DIRECTORY_TO_DELETE);
-                    if (lastDir != null) {
-                        data.set(LAST_DIRECTORY_TO_DELETE, null);
-                        return lastDir;
-                    }
-                }
-                status = STOPPED;
-                notifyAll();
-            }
-            return basedir;
-        }
-
-        synchronized boolean doDelete(Path dir) {
-            if (status == STOPPED) {
-                return false;
-            }
-            filesToDelete.add(dir);
-            if (status == NEW && CleanMojo.FAST_MODE_BACKGROUND.equals(fastMode)) {
-                status = RUNNING;
-                notifyAll();
-                start();
-            }
-            wrapExecutionListener();
-            return true;
-        }
-
-        /**
-         * If this has not been done already, we wrap the ExecutionListener inside a proxy
-         * which simply delegates call to the previous listener.  When the session ends, it will
-         * also call {@link BackgroundCleaner#sessionEnd()}.
-         * There's no clean API to do that properly as this is a very unusual use case for a plugin
-         * to outlive its main execution.
-         */
-        private void wrapExecutionListener() {
-            synchronized (CleanerListener.class) {
-                if (cleaner.session.getListeners().stream().noneMatch(l -> l instanceof CleanerListener)) {
-                    cleaner.session.registerListener(new CleanerListener());
-                }
-            }
-        }
-
-        synchronized void doSessionEnd() {
-            if (status != STOPPED) {
-                if (status == NEW) {
-                    start();
-                }
-                if (!CleanMojo.FAST_MODE_DEFER.equals(fastMode)) {
-                    try {
-                        cleaner.logger.info("Waiting for background file deletion");
-                        while (status != STOPPED) {
-                            wait();
-                        }
-                    } catch (InterruptedException e) {
-                        // ignore
-                    }
-                }
-            }
-        }
-    }
-
-    static class CleanerListener implements Listener {
-        @Override
-        public void onEvent(Event event) {
-            if (event.getType() == EventType.SESSION_ENDED) {
-                BackgroundCleaner.sessionEnd();
-            }
         }
     }
 }

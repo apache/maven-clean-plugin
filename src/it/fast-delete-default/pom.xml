@@ -25,8 +25,8 @@ under the License.
   <version>1.0-SNAPSHOT</version>
 
   <name>Fast delete</name>
-  <description>Check that fast delete is invoked. For making this test simpler,
-    this test uses a `.fastdir` directory outside the `target` directory.</description>
+  <description>Check fast delete with default configuration. The default directory is `target/.clean`,
+    which implies additional work as it is a directory inside the directory to delete.</description>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -40,7 +40,6 @@ under the License.
         <version>@project.version@</version>
         <configuration>
           <fast>true</fast>
-          <fastDir>${project.basedir}${file.separator}.fastdir</fastDir>
         </configuration>
       </plugin>
     </plugins>
