@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Objects;
 
 import org.apache.maven.api.Project;
+import org.apache.maven.api.ProjectScope;
 import org.apache.maven.api.Session;
 import org.apache.maven.api.di.Inject;
+import org.apache.maven.api.model.Build;
 import org.apache.maven.api.plugin.Log;
 import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.annotations.Mojo;
@@ -326,8 +328,23 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
         if (project != null && session != null) {
             ProjectManager projectManager = session.getService(ProjectManager.class);
             if (projectManager != null) {
-                projectManager.getSourceRoots(project).forEach((source) -> source.targetPath()
-                        .ifPresent((target) -> directories.add(target)));
+                final Build build = project.getBuild();
+                projectManager.getSourceRoots(project).forEach((source) -> {
+                    source.targetPath().ifPresent((targetPath) -> {
+                        // TODO: we can replace by `Project.getOutputDirectory(scope)` if MVN-11322 is merged.
+                        String base;
+                        ProjectScope scope = source.scope();
+                        if (scope == ProjectScope.MAIN) {
+                            base = build.getOutputDirectory();
+                        } else if (scope == ProjectScope.TEST) {
+                            base = build.getTestOutputDirectory();
+                        } else {
+                            base = build.getDirectory();
+                        }
+                        Path dir = project.getBasedir().resolve(base);
+                        directories.add(dir.resolve(targetPath));
+                    });
+                });
             }
         }
         /*
