@@ -51,7 +51,7 @@ import static org.mockito.Mockito.mock;
  * Test the clean mojo.
  */
 @MojoTest
-public class CleanMojoTest {
+class CleanMojoTest {
 
     private final Log log = mock(Log.class);
 
@@ -63,7 +63,7 @@ public class CleanMojoTest {
     @Test
     @Basedir("${basedir}/target/test-classes/unit/basic-clean-test")
     @InjectMojo(goal = "clean")
-    public void testBasicClean(CleanMojo mojo) throws Exception {
+    void basicClean(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertFalse(checkExists(getBasedir() + "/buildDirectory"), "Directory exists");
@@ -79,7 +79,7 @@ public class CleanMojoTest {
     @Test
     @Basedir("${basedir}/target/test-classes/unit/nested-clean-test")
     @InjectMojo(goal = "clean")
-    public void testCleanNestedStructure(CleanMojo mojo) throws Exception {
+    void cleanNestedStructure(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertFalse(checkExists(getBasedir() + "/target"));
@@ -96,7 +96,7 @@ public class CleanMojoTest {
     @Test
     @Basedir("${basedir}/target/test-classes/unit/empty-clean-test")
     @InjectMojo(goal = "clean")
-    public void testCleanEmptyDirectories(CleanMojo mojo) throws Exception {
+    void cleanEmptyDirectories(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertTrue(checkExists(getBasedir() + "/testDirectoryStructure"));
@@ -113,7 +113,7 @@ public class CleanMojoTest {
     @Test
     @Basedir("${basedir}/target/test-classes/unit/fileset-clean-test")
     @InjectMojo(goal = "clean")
-    public void testFilesetsClean(CleanMojo mojo) throws Exception {
+    void filesetsClean(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         // fileset 1
@@ -139,7 +139,7 @@ public class CleanMojoTest {
     @Test
     @Basedir("${basedir}/target/test-classes/unit/invalid-directory-test")
     @InjectMojo(goal = "clean")
-    public void testCleanInvalidDirectory(CleanMojo mojo) throws Exception {
+    void cleanInvalidDirectory(CleanMojo mojo) throws Exception {
         assertThrows(MojoException.class, mojo::execute, "Should fail to delete a file treated as a directory");
     }
 
@@ -151,7 +151,7 @@ public class CleanMojoTest {
     @Test
     @Basedir("${basedir}/target/test-classes/unit/missing-directory-test")
     @InjectMojo(goal = "clean")
-    public void testMissingDirectory(CleanMojo mojo) throws Exception {
+    void missingDirectory(CleanMojo mojo) throws Exception {
         mojo.execute();
 
         assertFalse(checkExists(getBasedir() + "/does-not-exist"));
@@ -169,7 +169,7 @@ public class CleanMojoTest {
     @EnabledOnOs(OS.WINDOWS)
     @Basedir("${basedir}/target/test-classes/unit/locked-file-test")
     @InjectMojo(goal = "clean")
-    public void testCleanLockedFile(CleanMojo mojo) throws Exception {
+    void cleanLockedFile(CleanMojo mojo) throws Exception {
         File f = new File(getBasedir(), "buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
@@ -189,7 +189,7 @@ public class CleanMojoTest {
     @EnabledOnOs(OS.WINDOWS)
     @Basedir("${basedir}/target/test-classes/unit/locked-file-test")
     @InjectMojo(goal = "clean")
-    public void testCleanLockedFileWithNoError(CleanMojo mojo) throws Exception {
+    void cleanLockedFileWithNoError(CleanMojo mojo) throws Exception {
         setVariableValueToObject(mojo, "failOnError", Boolean.FALSE);
         assertNotNull(mojo);
 
@@ -206,7 +206,7 @@ public class CleanMojoTest {
      */
     @Test
     @EnabledOnOs(OS.WINDOWS)
-    public void testFollowLinksWithWindowsJunction() throws Exception {
+    void followLinksWithWindowsJunction() throws Exception {
         testSymlink((link, target) -> {
             Process process = new ProcessBuilder()
                     .directory(link.getParent().toFile())
@@ -228,7 +228,7 @@ public class CleanMojoTest {
      */
     @Test
     @DisabledOnOs(OS.WINDOWS)
-    public void testFollowLinksWithSymLinkOnPosix() throws Exception {
+    void followLinksWithSymLinkOnPosix() throws Exception {
         testSymlink((link, target) -> {
             try {
                 Files.createSymbolicLink(link, target);
