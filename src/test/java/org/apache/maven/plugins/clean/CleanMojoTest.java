@@ -29,17 +29,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 
+import org.apache.maven.api.plugin.testing.InjectMojo;
+import org.apache.maven.api.plugin.testing.MojoTest;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.SystemStreamLog;
-import org.apache.maven.plugin.testing.junit5.InjectMojo;
-import org.apache.maven.plugin.testing.junit5.MojoTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import static org.apache.maven.plugin.testing.junit5.MojoExtension.setVariableValueToObject;
-import static org.codehaus.plexus.testing.PlexusExtension.getBasedir;
+import static org.apache.maven.api.plugin.testing.MojoExtension.getBasedir;
+import static org.apache.maven.api.plugin.testing.MojoExtension.setVariableValueToObject;
 import static org.codehaus.plexus.util.IOUtil.copy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
