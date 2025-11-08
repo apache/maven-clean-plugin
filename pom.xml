@@ -103,7 +103,7 @@ under the License.
     <dependency>
       <groupId>org.apache.maven.plugin-testing</groupId>
       <artifactId>maven-plugin-testing-harness</artifactId>
-      <version>4.0.0-alpha-2</version>
+      <version>3.4.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -115,12 +115,6 @@ under the License.
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>4.11.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.codehaus.plexus</groupId>
-      <artifactId>plexus-testing</artifactId>
-      <version>1.7.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
