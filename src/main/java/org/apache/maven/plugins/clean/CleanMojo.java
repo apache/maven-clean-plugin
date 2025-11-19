@@ -52,13 +52,6 @@ import org.apache.maven.api.services.ProjectManager;
  */
 @Mojo(name = "clean")
 public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
-
-    public static final String FAST_MODE_BACKGROUND = "background";
-
-    public static final String FAST_MODE_AT_END = "at-end";
-
-    public static final String FAST_MODE_DEFER = "defer";
-
     /**
      * The logger where to send information about what the plugin is doing.
      */
@@ -189,19 +182,23 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * until all the files have been deleted.  If any problem occurs during the atomic move of the directories,
      * the plugin will default to the traditional deletion mechanism.
      *
+     * <p>Note that for small projects with few files to delete, the "fast" clean tends to be actually slower.
+     * It is also more at risk that errors occurring during the deletion of a file get unnoticed, or are noticed
+     * late in the build process. This option should be used only when it has been verified to be worth.</p>
+     *
      * @since 3.2
      */
     @Parameter(property = "maven.clean.fast", defaultValue = "false")
     private boolean fast;
 
     /**
-     * When fast clean is specified, the {@code fastDir} property will be used as the location where directories
-     * to be deleted will be moved prior to background deletion.  If not specified, the
-     * {@code ${maven.multiModuleProjectDirectory}/target/.clean} directory will be used.
+     * When fast clean is enabled,
+     * the location where directories to be deleted will be moved prior to background deletion.
+     * If not specified, the {@code ${maven.multiModuleProjectDirectory}/target/.clean} directory will be used.
      * If the {@code ${build.directory}} has been modified, you'll have to adjust this property explicitly.
      * In order for fast clean to work correctly, this directory and the various directories that will be deleted
      * should usually reside on the same volume.  The exact conditions are system-dependent though, but if an atomic
-     * move is not supported, the standard deletion mechanism will be used.
+     * move is not supported, the immediate deletion mechanism will be used.
      *
      * @since 3.2
      * @see #fast
@@ -210,16 +207,16 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private Path fastDir;
 
     /**
-     * Mode to use when using fast clean.  Values are: {@code background} to start deletion immediately and
-     * waiting for all files to be deleted when the session ends, {@code at-end} to indicate that the actual
-     * deletion should be performed synchronously when the session ends, or {@code defer} to specify that
-     * the actual file deletion should be started in the background when the session ends.
+     * Mode to use when using fast clean. Values are:
+     * {@code background} to start deletion immediately and waiting for all files to be deleted when the session ends,
+     * {@code at-end} to indicate that the actual deletion should be performed synchronously when the session ends, or
+     * {@code defer} to specify that the actual file deletion should be started in the background when the session ends.
      * This should only be used when maven is embedded in a long-running process.
      *
      * @since 3.2
      * @see #fast
      */
-    @Parameter(property = "maven.clean.fastMode", defaultValue = FAST_MODE_BACKGROUND)
+    @Parameter(property = "maven.clean.fastMode", defaultValue = "background")
     private String fastMode;
 
     /**
@@ -263,42 +260,41 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
             logger.info("Clean is skipped.");
             return;
         }
+        Cleaner cleaner = null;
+        if (fast && session != null) {
+            @SuppressWarnings("LocalVariableHidesMemberVariable")
+            final FastMode fastMode = FastMode.caseInsensitiveValueOf(this.fastMode);
 
-        String multiModuleProjectDirectory =
-                session != null ? session.getSystemProperties().get("maven.multiModuleProjectDirectory") : null;
-
-        @SuppressWarnings("LocalVariableHidesMemberVariable")
-        final Path fastDir;
-        if (fast && this.fastDir != null) {
-            fastDir = this.fastDir;
-        } else if (fast && multiModuleProjectDirectory != null) {
-            fastDir = Path.of(multiModuleProjectDirectory, "target", ".clean");
-        } else {
-            fastDir = null;
-            if (fast) {
-                logger.warn("Fast clean requires maven 3.3.1 or newer, "
-                        + "or an explicit directory to be specified with the 'fastDir' configuration of "
-                        + "this plugin, or the 'maven.clean.fastDir' user property to be set.");
+            @SuppressWarnings("LocalVariableHidesMemberVariable")
+            Path fastDir = this.fastDir;
+            if (fastDir == null) {
+                String multiProjectDirectory = session.getSystemProperties().get("maven.multiModuleProjectDirectory");
+                if (multiProjectDirectory != null) {
+                    fastDir = Path.of(multiProjectDirectory, "target", ".clean");
+                } else {
+                    logger.warn("Fast clean requires maven 3.3.1 or newer, "
+                            + "or an explicit directory to be specified with the 'fastDir' configuration of "
+                            + "this plugin, or the 'maven.clean.fastDir' user property to be set.");
+                }
+            }
+            if (fastDir != null) {
+                cleaner = new BackgroundCleaner(
+                        session,
+                        matcherFactory,
+                        logger,
+                        isVerbose(),
+                        fastDir,
+                        fastMode,
+                        followSymLinks,
+                        force,
+                        failOnError,
+                        retryOnError);
             }
         }
-        if (fast
-                && !FAST_MODE_BACKGROUND.equals(fastMode)
-                && !FAST_MODE_AT_END.equals(fastMode)
-                && !FAST_MODE_DEFER.equals(fastMode)) {
-            throw new IllegalArgumentException("Illegal value '" + fastMode + "' for fastMode. Allowed values are '"
-                    + FAST_MODE_BACKGROUND + "', '" + FAST_MODE_AT_END + "' and '" + FAST_MODE_DEFER + "'.");
+        if (cleaner == null) {
+            cleaner =
+                    new Cleaner(matcherFactory, logger, isVerbose(), followSymLinks, force, failOnError, retryOnError);
         }
-        final var cleaner = new Cleaner(
-                session,
-                matcherFactory,
-                logger,
-                isVerbose(),
-                fastDir,
-                fastMode,
-                followSymLinks,
-                force,
-                failOnError,
-                retryOnError);
         try {
             for (Path directoryItem : getDirectories()) {
                 cleaner.delete(directoryItem);
