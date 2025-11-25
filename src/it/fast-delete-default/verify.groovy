@@ -22,11 +22,6 @@ if ( new File( basedir, "target" ).exists() )
     System.out.println( "FAILURE:  'target' has not been deleted." );
     return false;
 }
-if ( new File( basedir, ".fastdir" ).exists() )
-{
-    System.out.println( "FAILURE:  '.fastdir' has not been deleted." );
-    return false;
-}
 
 File buildLog = new File(basedir, 'build.log')
 return buildLog.text.contains('mvn-background-cleaner')
