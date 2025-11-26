@@ -261,38 +261,24 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
             logger.info("Clean is skipped.");
             return;
         }
-        Cleaner cleaner = null;
+        Cleaner cleaner;
         if (fast && session != null) {
-            @SuppressWarnings("LocalVariableHidesMemberVariable")
-            final FastMode fastMode = FastMode.caseInsensitiveValueOf(this.fastMode);
-
-            @SuppressWarnings("LocalVariableHidesMemberVariable")
-            Path fastDir = this.fastDir;
-            if (fastDir == null) {
-                String multiProjectDirectory = session.getSystemProperties().get("maven.multiModuleProjectDirectory");
-                if (multiProjectDirectory != null) {
-                    fastDir = Path.of(multiProjectDirectory, "target", ".clean");
-                } else {
-                    logger.warn("Fast clean requires maven 3.3.1 or newer, "
-                            + "or an explicit directory to be specified with the 'fastDir' configuration of "
-                            + "this plugin, or the 'maven.clean.fastDir' user property to be set.");
-                }
+            Path tmpDir = fastDir;
+            if (tmpDir == null) {
+                tmpDir = session.getRootDirectory().resolve("target").resolve(".clean");
             }
-            if (fastDir != null) {
-                cleaner = new BackgroundCleaner(
-                        session,
-                        matcherFactory,
-                        logger,
-                        isVerbose(),
-                        fastDir,
-                        fastMode,
-                        followSymLinks,
-                        force,
-                        failOnError,
-                        retryOnError);
-            }
-        }
-        if (cleaner == null) {
+            cleaner = new BackgroundCleaner(
+                    session,
+                    matcherFactory,
+                    logger,
+                    isVerbose(),
+                    tmpDir,
+                    FastMode.caseInsensitiveValueOf(fastMode),
+                    followSymLinks,
+                    force,
+                    failOnError,
+                    retryOnError);
+        } else {
             cleaner =
                     new Cleaner(matcherFactory, logger, isVerbose(), followSymLinks, force, failOnError, retryOnError);
         }
