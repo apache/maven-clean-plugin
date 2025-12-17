@@ -61,7 +61,7 @@ under the License.
   </distributionManagement>
 
   <properties>
-    <mavenVersion>3.9.11</mavenVersion>
+    <mavenVersion>3.9.12</mavenVersion>
     <version.plexus-utils>3.6.0</version.plexus-utils>
     <version.maven-invoker-plugin>3.9.1</version.maven-invoker-plugin>
     <project.build.outputTimestamp>2025-05-27T21:55:59Z</project.build.outputTimestamp>
