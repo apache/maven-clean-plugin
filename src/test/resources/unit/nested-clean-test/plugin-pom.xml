@@ -23,9 +23,9 @@
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
-          <directory>${basedir}/target/test-classes/unit/nested-clean-test/target</directory>
-          <outputDirectory>${basedir}/target/test-classes/unit/nested-clean-test/target/classes</outputDirectory>
-          <testOutputDirectory>${basedir}/target/test-classes/unit/nested-clean-test/target/test-classes</testOutputDirectory>
+          <directory>${basedir}/target</directory>
+          <outputDirectory>${basedir}/target/classes</outputDirectory>
+          <testOutputDirectory>${basedir}/target/test-classes</testOutputDirectory>
           <verbose>true</verbose>
           <failOnError>true</failOnError>
         </configuration>

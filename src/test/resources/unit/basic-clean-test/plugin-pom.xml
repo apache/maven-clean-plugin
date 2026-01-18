@@ -23,9 +23,9 @@
       <plugin>
         <artifactId>maven-clean-plugin</artifactId>
         <configuration>
-          <directory>${basedir}/target/test-classes/unit/basic-clean-test/buildDirectory</directory>
-          <outputDirectory>${basedir}/target/test-classes/unit/basic-clean-test/buildOutputDirectory</outputDirectory>
-          <testOutputDirectory>${basedir}/target/test-classes/unit/basic-clean-test/buildTestDirectory</testOutputDirectory>
+          <directory>${basedir}/buildDirectory</directory>
+          <outputDirectory>${basedir}/buildOutputDirectory</outputDirectory>
+          <testOutputDirectory>${basedir}/buildTestDirectory</testOutputDirectory>
           <verbose>true</verbose>
           <failOnError>true</failOnError>
         </configuration>

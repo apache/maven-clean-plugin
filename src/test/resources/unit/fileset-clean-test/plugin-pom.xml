@@ -25,7 +25,7 @@
         <configuration>
           <filesets>
             <fileset>
-              <directory>${basedir}/target/test-classes/unit/fileset-clean-test/target</directory>
+              <directory>${basedir}/target</directory>
               <includes>
                 <include>**/file.txt</include>
                 <include>**/test-classes/**</include>
@@ -35,7 +35,7 @@
               </excludes>
             </fileset>
             <fileset>
-              <directory>${basedir}/target/test-classes/unit/fileset-clean-test/buildOutputDirectory</directory>
+              <directory>${basedir}/buildOutputDirectory</directory>
               <includes>
                 <include>**</include>
               </includes>
@@ -46,6 +46,7 @@
           </filesets>
           <verbose>true</verbose>
           <failOnError>true</failOnError>
+          <excludeDefaultDirectories>true</excludeDefaultDirectories>
         </configuration>
       </plugin>
     </plugins>
