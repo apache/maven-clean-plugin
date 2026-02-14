@@ -48,7 +48,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,7 +86,7 @@ class CleanerTest {
         setPosixFilePermissions(basedir, permissions);
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, true, false);
         final var exception = assertThrows(AccessDeniedException.class, () -> cleaner.delete(basedir));
-        verify(log, times(1)).warn(any(CharSequence.class), any(Throwable.class));
+        verify(log).warn(any(CharSequence.class), any(Throwable.class));
         assertTrue(exception.getMessage().contains(basedir.toString()));
     }
 
@@ -115,7 +114,7 @@ class CleanerTest {
         setPosixFilePermissions(basedir, permissions);
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, false);
         assertDoesNotThrow(() -> cleaner.delete(basedir));
-        verify(log, times(1)).warn(any(CharSequence.class), any(Throwable.class));
+        verify(log).warn(any(CharSequence.class), any(Throwable.class));
         InOrder inOrder = inOrder(log);
         ArgumentCaptor<AccessDeniedException> cause1 = ArgumentCaptor.forClass(AccessDeniedException.class);
         inOrder.verify(log).warn(eq("Failed to delete " + file), cause1.capture());
