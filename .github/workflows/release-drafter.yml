@@ -19,7 +19,7 @@ name: Release Drafter
 on:
   push:
     branches:
-      - maven-clean-plugin-3.x
+      - maven-clean-plugin-3.6.x
   workflow_dispatch:
 
 jobs:
