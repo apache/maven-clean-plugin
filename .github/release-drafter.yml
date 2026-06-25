@@ -14,14 +14,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-   
-name: Release Drafter
-on:
-  push:
-    branches:
-      - maven-clean-plugin-3.x
-  workflow_dispatch:
 
-jobs:
-  update_release_draft:
-    uses: apache/maven-gh-actions-shared/.github/workflows/release-drafter.yml@dependabot/github_actions/v4/release-drafter/release-drafter-7.5.1
+_extends: maven-gh-actions-shared
+tag-template: maven-clean-plugin-$RESOLVED_VERSION
