@@ -24,7 +24,7 @@ on:
 jobs:
   build:
     name: Verify
-    uses: apache/maven-gh-actions-shared/.github/workflows/maven-verify.yml@v4
+    uses: apache/maven-gh-actions-shared/.github/workflows/maven-verify.yml@v5
     with:
       maven4-build: true
       maven4-version: '4.0.0-rc-5' # the same as used in project
