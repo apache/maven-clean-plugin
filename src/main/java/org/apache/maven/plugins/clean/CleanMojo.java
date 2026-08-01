@@ -261,26 +261,15 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
             logger.info("Clean is skipped.");
             return;
         }
-        Cleaner cleaner;
+        Cleaner cleaner =
+                new Cleaner(matcherFactory, logger, isVerbose(), followSymLinks, force, failOnError, retryOnError);
         if (fast && session != null) {
             Path tmpDir = fastDir;
             if (tmpDir == null) {
                 tmpDir = session.getRootDirectory().resolve("target").resolve(".clean");
             }
-            cleaner = new BackgroundCleaner(
-                    session,
-                    matcherFactory,
-                    logger,
-                    isVerbose(),
-                    tmpDir,
-                    FastMode.caseInsensitiveValueOf(fastMode),
-                    followSymLinks,
-                    force,
-                    failOnError,
-                    retryOnError);
-        } else {
-            cleaner =
-                    new Cleaner(matcherFactory, logger, isVerbose(), followSymLinks, force, failOnError, retryOnError);
+            cleaner.setBackgroundCleaner(
+                    BackgroundCleaner.getOrCreate(session, logger, tmpDir, FastMode.caseInsensitiveValueOf(fastMode)));
         }
         try {
             for (Path directoryItem : getDirectories()) {
