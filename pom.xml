@@ -65,7 +65,7 @@ under the License.
     <javaVersion>17</javaVersion>
     <guavaVersion>33.4.6-jre</guavaVersion>
     <guiceVersion>6.0.0</guiceVersion>
-    <slf4jVersion>2.0.18</slf4jVersion>
+    <slf4jVersion>2.0.19</slf4jVersion>
     <version.maven-plugin-testing>4.0.0-beta-4</version.maven-plugin-testing>
     <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
     <project.build.outputTimestamp>2025-02-15T18:29:35Z</project.build.outputTimestamp>
