@@ -44,8 +44,10 @@ import org.apache.maven.api.plugin.Log;
 import org.apache.maven.api.services.PathMatcherFactory;
 
 /**
- * Cleans directories. This base class deletes the files in the current thread.
- * The {@link BackgroundCleaner} subclass adds the capability to run in background.
+ * Cleans directories. This class deletes the files in the current thread.
+ * If a {@link BackgroundCleaner} is {@linkplain #setBackgroundCleaner(BackgroundCleaner) attached},
+ * directories eligible for fast deletion are moved to a staging area and deleted in the background,
+ * using the {@code force} and {@code retryOnError} configuration of this cleaner instance.
  *
  * <h4>Limitations</h4>
  * This class is not thread-safe: each instance shall be be executed in only one thread at a time.
@@ -145,6 +147,14 @@ class Cleaner implements FileVisitor<Path> {
     private final boolean retryOnError;
 
     /**
+     * The shared background cleaner service, or {@code null} if fast deletion is not enabled.
+     * When set, {@link #fastDelete(Path)} delegates to this service, passing the per-module
+     * {@link #force} and {@link #retryOnError} values so that each module's configuration
+     * is respected even though the background thread is shared.
+     */
+    private BackgroundCleaner backgroundCleaner;
+
+    /**
      * The delays (in milliseconds) if {@link #retryOnError} is {@code true}.
      * The length of this array is the maximal number of new attempts.
      */
@@ -229,6 +239,17 @@ class Cleaner implements FileVisitor<Path> {
     }
 
     /**
+     * Sets the shared background cleaner service for fast deletion.
+     * When set, {@link #fastDelete(Path)} will delegate to the background cleaner,
+     * passing this cleaner's {@link #force} and {@link #retryOnError} configuration.
+     *
+     * @param backgroundCleaner the session-scoped background cleaner, or {@code null} to disable fast deletion
+     */
+    void setBackgroundCleaner(BackgroundCleaner backgroundCleaner) {
+        this.backgroundCleaner = backgroundCleaner;
+    }
+
+    /**
      * Deletes the specified fileset in the current thread.
      * This method modifies the include and exclude filters,
      * whether to exclude the base directory and whether to follow symbolic links.
@@ -307,13 +328,18 @@ class Cleaner implements FileVisitor<Path> {
 
     /**
      * Deletes the specified directory and its contents in a background thread.
-     * The default implementation returns {@code false}.
+     * If a {@link BackgroundCleaner} has been {@linkplain #setBackgroundCleaner set},
+     * delegates to it with this cleaner's {@link #force} and {@link #retryOnError} values.
+     * Otherwise returns {@code false}.
      *
      * @param basedir the directory to delete, must not be {@code null}
      * @return whether this method was able to register the background task
      * @throws IOException if an error occurred while preparing the task before execution in a background thread
      */
     boolean fastDelete(Path baseDir) throws IOException {
+        if (backgroundCleaner != null) {
+            return backgroundCleaner.fastDelete(baseDir, force, retryOnError);
+        }
         return false;
     }
 
@@ -321,6 +347,9 @@ class Cleaner implements FileVisitor<Path> {
      * Returns an error message to show to user if the fast delete failed.
      */
     String fastDeleteError(IOException e) {
+        if (backgroundCleaner != null) {
+            return backgroundCleaner.fastDeleteError(e);
+        }
         return e.toString();
     }
 
@@ -447,7 +476,7 @@ class Cleaner implements FileVisitor<Path> {
      * @param currentDepth 0 for the base directory, and decremented for each parent directory
      * @return the root path which has been made writable, or {@code null} if none
      */
-    private static Path setWritable(Path file, int currentDepth) throws IOException {
+    static Path setWritable(Path file, int currentDepth) throws IOException {
         while (file != null) {
             PosixFileAttributeView posix = Files.getFileAttributeView(file, PosixFileAttributeView.class);
             if (posix != null) {
