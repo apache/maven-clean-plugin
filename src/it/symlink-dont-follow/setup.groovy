@@ -25,12 +25,12 @@ import java.util.regex.*;
 import org.apache.maven.plugins.clean.*;
 
 String[][] pairs =
-{
-    { "ext/file.txt", "target/link.txt" },
-    { "ext/dir", "target/link" },
-    { "ext/file.txt", "target2/link.txt" },
-    { "ext/dir", "target2/link" },
-};
+[
+    [ "ext/file.txt", "target/link.txt" ],
+    [ "ext/dir", "target/link" ],
+    [ "ext/file.txt", "target2/link.txt" ],
+    [ "ext/dir", "target2/link" ],
+];
 
 for ( String[] pair : pairs )
 {

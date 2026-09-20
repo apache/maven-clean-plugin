@@ -22,11 +22,11 @@ import java.util.*;
 import java.util.jar.*;
 import java.util.regex.*;
 
-String[] expected = {
+String[] expected = [
     "ext",
     "ext/file.txt",
     "ext/dir/file.txt",
-};
+];
 
 for ( String path : expected )
 {
@@ -39,14 +39,14 @@ for ( String path : expected )
     }
 }
 
-String[] unexpected = {
+String[] unexpected = [
     "target/link.txt",
     "target/link",
     "target",
     "target2/link.txt",
     "target2/link",
     "target2",
-};
+];
 
 for ( String path : unexpected )
 {
