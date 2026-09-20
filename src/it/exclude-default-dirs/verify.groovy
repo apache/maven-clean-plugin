@@ -24,7 +24,7 @@ import java.util.regex.*;
 
 try
 {
-    String[] expected = {
+    String[] expected = [
         "target",
         "target/test-1.0-SNAPSHOT.jar",
         "target/classes",
@@ -33,7 +33,7 @@ try
         "target/test-classes/test.properties",
         "target/site",
         "target/site/index.html",
-    };
+    ];
     for ( String path : expected )
     {
         File file = new File( basedir, path );
@@ -45,9 +45,9 @@ try
         }
     }
 
-    String[] unexpected = {
+    String[] unexpected = [
         "delete-me",
-    };
+    ];
     for ( String path : unexpected )
     {
         File file = new File( basedir, path );

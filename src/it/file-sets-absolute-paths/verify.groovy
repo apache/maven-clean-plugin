@@ -24,9 +24,9 @@ import java.util.regex.*;
 
 try
 {
-    String[] unexpected = {
+    String[] unexpected = [
         "delete-me",
-    };
+    ];
     for ( String path : unexpected )
     {
         File file = new File( basedir, path );

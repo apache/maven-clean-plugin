@@ -24,7 +24,7 @@ import java.util.regex.*;
 
 try
 {
-    String[] expected = {
+    String[] expected = [
         "dir0/excluded.txt",
         "dir0/sub0/excluded.txt",
         "dir0/sub1",
@@ -44,7 +44,7 @@ try
         "dir3/sub2/excluded.txt",
 
         "dir4/excluded/file.txt",
-    };
+    ];
     for ( String path : expected )
     {
         File file = new File( new File( basedir, "dirs" ), path );
@@ -56,7 +56,7 @@ try
         }
     }
 
-    String[] unexpected = {
+    String[] unexpected = [
         "dir0/included.txt",
         "dir0/sub0/included.txt",
         "dir0/sub1/included.txt",
@@ -75,7 +75,7 @@ try
 
         "dir4/file.txt",
         "dir4/included/file.txt",
-    };
+    ];
     for ( String path : unexpected )
     {
         File file = new File( new File( basedir, "dirs" ), path );

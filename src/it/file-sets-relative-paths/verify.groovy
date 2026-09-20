@@ -24,10 +24,10 @@ import java.util.regex.*;
 
 try
 {
-    String[] expected = {
+    String[] expected = [
         "temp-stuff/test.txt",
         "deploy/test.txt",
-    };
+    ];
     for ( String path : expected )
     {
         File file = new File( basedir, path );
@@ -39,13 +39,13 @@ try
         }
     }
 
-    String[] unexpected = {
+    String[] unexpected = [
         "target",
         "child-a/target",
         "child-a/temp-stuff",
         "child-b/target",
         "child-b/deploy",
-    };
+    ];
     for ( String path : unexpected )
     {
         File file = new File( basedir, path );
