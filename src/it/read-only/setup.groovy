@@ -23,7 +23,7 @@ if (!new File(basedir, "target/read-only-dir/read-only.properties").setWritable(
     System.out.println("Cannot change file permission.");
     return false;
 }
-if (File.separatorChar == '/') {
+if (File.separatorChar == '/' as char) {
     // Directory permission can be changed only on Unix, not on Windows.
     if (!new File(basedir, "target/read-only-dir").setWritable(false)) {
         System.out.println("Cannot change directory permission.");
