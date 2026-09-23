@@ -42,6 +42,7 @@ import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.exists;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -300,6 +301,6 @@ class BackgroundCleanerTest {
         // Must not throw.
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // Can still be used normally afterwards.
-        assertTrue(bc != null);
+        assertNotNull(bc);
     }
 }
