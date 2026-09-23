@@ -195,7 +195,14 @@ final class BackgroundCleaner implements Listener, Runnable {
      */
     static BackgroundCleaner getOrCreate(
             @Nonnull Session session, @Nonnull Log logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
-        return session.getData().computeIfAbsent(KEY, () -> new BackgroundCleaner(session, logger, fastDir, fastMode));
+        BackgroundCleaner bc =
+                session.getData().computeIfAbsent(KEY, () -> new BackgroundCleaner(session, logger, fastDir, fastMode));
+        if (!bc.fastDir.equals(fastDir) || bc.fastMode != fastMode) {
+            logger.debug("BackgroundCleaner already initialized with fastDir=" + bc.fastDir
+                    + ", fastMode=" + bc.fastMode + "; ignoring fastDir=" + fastDir
+                    + ", fastMode=" + fastMode + " from this subproject.");
+        }
+        return bc;
     }
 
     /**
@@ -203,6 +210,12 @@ final class BackgroundCleaner implements Listener, Runnable {
      * and queues them for background deletion. This restores the cleanup behavior that was
      * present in the singleton pattern of version 3.5.0 but was lost when switching to
      * per-subproject instances.
+     *
+     * <p><b>Limitation:</b> leftovers are always deleted with {@code force=false}.
+     * Because the previous build's configuration is not persisted, we cannot know
+     * whether it used {@code force=true}. As a consequence, read-only files that
+     * survived a killed build will not be force-deleted here; they will remain until
+     * the user runs a new clean with {@code force=true}.</p>
      */
     private void scanForLeftovers() {
         if (Files.isDirectory(fastDir)) {
@@ -392,9 +405,7 @@ final class BackgroundCleaner implements Listener, Runnable {
             }
             int remaining = 0;
             for (Path path : failures) {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (IOException e) {
+                if (!tryDeleteOnce(path, force)) {
                     remaining++;
                 }
             }
