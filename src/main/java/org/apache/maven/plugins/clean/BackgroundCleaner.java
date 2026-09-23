@@ -157,8 +157,13 @@ final class BackgroundCleaner implements Listener, Runnable {
      * Whether to disable the deletion of files in background threads.
      * This is used for avoiding to repeat the same warning many times
      * when the {@link #fastDir} directory does not exist.
+     *
+     * <p>This field is written by {@link #fastDeleteError(IOException)} without holding any lock
+     * (to avoid a lock-ordering risk), and read by the synchronized {@link #fastDelete} method.
+     * Declaring it {@code volatile} ensures that the write is immediately visible to all threads
+     * without requiring the reader to hold the same monitor as the writer.</p>
      */
-    private boolean disabled;
+    private volatile boolean disabled;
 
     /**
      * Creates a new background cleaner service.

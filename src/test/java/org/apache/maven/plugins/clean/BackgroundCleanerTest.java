@@ -174,6 +174,12 @@ class BackgroundCleanerTest {
     /**
      * Files placed in the staging area via {@link BackgroundCleaner#fastDelete} must be
      * deleted in the background before the session ends.
+     *
+     * <p><b>Note on assertion strategy:</b> {@code fastDelete} moves {@code target} to a staging
+     * directory under {@code fastDir} <em>synchronously</em>, so {@code exists(target)} becomes
+     * {@code false} immediately — before any background deletion runs. The meaningful assertion is
+     * that the staging area inside {@code fastDir} is empty after {@code onEvent} has drained the
+     * executor (i.e. background deletion actually completed).</p>
      */
     @Test
     void fastDeleteRemovesDirectoryInBackground(@TempDir Path tempDir) throws Exception {
@@ -188,14 +194,17 @@ class BackgroundCleanerTest {
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         assertTrue(bc.fastDelete(target, false, true));
 
-        // Fire SESSION_ENDED to flush the executor.
+        // After fastDelete(), target has been moved to fastDir — the staging area exists.
+        assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
+
+        // Fire SESSION_ENDED: onEvent shuts down the executor and waits for completion.
         Event event = mock(Event.class);
         when(event.getType()).thenReturn(EventType.SESSION_ENDED);
         captor.getValue().onEvent(event);
 
-        // Give the background thread a moment to finish (onEvent waits up to 1 h, but it
-        // returns as soon as the executor terminates — in practice this is milliseconds).
-        assertFalse(exists(target), "target directory must have been deleted");
+        // After onEvent returns, the background thread has finished and run() has cleaned up.
+        // fastDir itself is deleted by run() when it is empty (directoriesToDeleteIfEmpty).
+        assertFalse(exists(fastDir), "staging directory must be deleted after background clean completes");
     }
 
     // -----------------------------------------------------------------------
@@ -207,6 +216,14 @@ class BackgroundCleanerTest {
      * {@link Files#deleteIfExists} must still be deleted: the batch-retry path
      * must call {@code tryDeleteOnce(path, force)} (which makes the file writable)
      * rather than raw {@code Files.deleteIfExists}.
+     *
+     * <p><b>Note on assertion strategy:</b> {@code fastDelete} moves the entire {@code target}
+     * tree (including the read-only file) to a staging directory under {@code fastDir}
+     * <em>synchronously</em>. After that move, neither {@code target} nor {@code readOnly}
+     * exist at their original paths — the assertions would pass trivially. The meaningful
+     * check is that the staging area itself is empty after {@code onEvent} completes, which
+     * proves that {@code tryDeleteOnce(path, true)} successfully handled the read-only file
+     * inside the staging tree.</p>
      */
     @Test
     void batchRetryWithForceDeletesReadOnlyFile(@TempDir Path tempDir) throws Exception {
@@ -224,12 +241,16 @@ class BackgroundCleanerTest {
         // force=true, retryOnError=true — retry must make the file writable.
         assertTrue(bc.fastDelete(target, true, true));
 
+        // After fastDelete(), the tree (including the read-only file) is in the staging area.
+        assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
+
         Event event = mock(Event.class);
         when(event.getType()).thenReturn(EventType.SESSION_ENDED);
         captor.getValue().onEvent(event);
 
-        assertFalse(exists(target), "target with read-only file must be deleted when force=true");
-        assertFalse(exists(readOnly), "read-only file must be deleted when force=true");
+        // After onEvent returns, the executor has been drained. The staging directory is
+        // deleted by run() when empty — proving the read-only file was force-deleted.
+        assertFalse(exists(fastDir), "staging directory must be deleted: read-only file must be force-deleted");
     }
 
     // -----------------------------------------------------------------------
