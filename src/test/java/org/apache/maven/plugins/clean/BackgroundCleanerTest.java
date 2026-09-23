@@ -55,7 +55,6 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link BackgroundCleaner}'s new batch-retry, session-scoping,
  * and leftover-scan logic introduced in the fast-clean refactor.
  */
-@DisabledOnOs(OS.WINDOWS)
 class BackgroundCleanerTest {
 
     /**
@@ -212,10 +211,15 @@ class BackgroundCleanerTest {
     // -----------------------------------------------------------------------
 
     /**
-     * With {@code force=true}, a read-only file that would fail a plain
-     * {@link Files#deleteIfExists} must still be deleted: the batch-retry path
-     * must call {@code tryDeleteOnce(path, force)} (which makes the file writable)
-     * rather than raw {@code Files.deleteIfExists}.
+     * With {@code force=true}, {@code tryDeleteOnce} must handle a read-only file by calling
+     * {@link Cleaner#setWritable} and retrying immediately (first-pass force logic), so
+     * that the file is successfully deleted in the background.
+     *
+     * <p><b>Note on what this test covers:</b> This exercises the first-pass
+     * {@code force=true} handling in {@code tryDeleteOnce} (i.e., {@code setWritable} +
+     * immediate retry on {@code AccessDeniedException}). The second-pass batch-retry
+     * sleep-and-loop is only reachable when a file fails even after {@code setWritable}
+     * (e.g. a file held open by another process on Windows) and is not exercised here.</p>
      *
      * <p><b>Note on assertion strategy:</b> {@code fastDelete} moves the entire {@code target}
      * tree (including the read-only file) to a staging directory under {@code fastDir}
@@ -226,7 +230,8 @@ class BackgroundCleanerTest {
      * inside the staging tree.</p>
      */
     @Test
-    void batchRetryWithForceDeletesReadOnlyFile(@TempDir Path tempDir) throws Exception {
+    @DisabledOnOs(OS.WINDOWS)
+    void forceDeleteHandlesReadOnlyFile(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
         Path target = createDirectory(tempDir.resolve("target"));
         Path readOnly = createFile(target.resolve("ro.txt"));
