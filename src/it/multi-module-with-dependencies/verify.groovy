@@ -19,6 +19,7 @@
 
 // Verify that clean succeeds in a multi-module project where one module depends on
 // another without attempting dependency resolution (MCLEAN-104).
+// This regression was introduced in Maven 4.0.0-beta-1 and fixed in apache/maven#2124.
 // The clean lifecycle should not resolve dependencies, so module1 need not be installed.
 
 def log = new File( basedir, 'build.log' ).text
