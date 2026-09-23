@@ -410,11 +410,11 @@ final class BackgroundCleaner implements Listener, Runnable {
                 }
             }
             if (remaining > 0) {
-                errorOccurred(new IOException("Failed to delete " + remaining + " file(s) during background clean;"
+                errorOccurred(new IOException("Failed to delete " + remaining + " path(s) during background clean;"
                         + " will retry on next build"));
             }
         } else if (!failures.isEmpty()) {
-            errorOccurred(new IOException("Failed to delete " + failures.size() + " file(s) during background clean"));
+            errorOccurred(new IOException("Failed to delete " + failures.size() + " path(s) during background clean"));
         }
     }
 
