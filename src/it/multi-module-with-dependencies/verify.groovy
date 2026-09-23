@@ -24,16 +24,6 @@
 
 def log = new File( basedir, 'build.log' ).text
 
-if ( !log.contains( 'BUILD SUCCESS' ) )
-{
-    System.out.println( 'FAILURE: expected BUILD SUCCESS' )
-    return false
-}
-
-if ( log.contains( 'Could not resolve dependencies' ) || log.contains( 'DependencyResolutionException' ) )
-{
-    System.out.println( 'FAILURE: clean should not attempt dependency resolution' )
-    return false
-}
-
-return true
+assert log.contains( 'BUILD SUCCESS' ) : 'expected BUILD SUCCESS'
+assert !log.contains( 'Could not resolve dependencies' ) : 'clean should not attempt dependency resolution'
+assert !log.contains( 'DependencyResolutionException' ) : 'clean should not attempt dependency resolution'
