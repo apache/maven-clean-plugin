@@ -311,7 +311,18 @@ final class Cleaner implements FileVisitor<Path> {
         var options = EnumSet.noneOf(FileVisitOption.class);
         if (followSymlinks) {
             options.add(FileVisitOption.FOLLOW_LINKS);
-            basedir = getCanonicalPath(basedir, null);
+            try {
+                basedir = getCanonicalPath(basedir, null);
+            } catch (IOException e) {
+                /*
+                 * Fall back to the original (unresolved) path. This can happen on Windows Docker volumes
+                 * where volume-mount reparse points cause toRealPath() to throw NoSuchFileException
+                 * (JDK-8172711). FOLLOW_LINKS is still set above so symlink following still works via
+                 * walkFileTree; the only loss is the loop-detection benefit of canonicalization, which
+                 * is benign in practice.
+                 */
+                logger.debug("Could not resolve real path of \"" + basedir + "\", continuing with original path", e);
+            }
         }
         if (isClearAll() && !followSymlinks) {
             // If anything wrong happens, we'll just use the usual deletion mechanism
