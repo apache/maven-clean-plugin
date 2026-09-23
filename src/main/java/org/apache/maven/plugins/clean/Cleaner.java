@@ -148,8 +148,8 @@ class Cleaner implements FileVisitor<Path> {
 
     /**
      * The shared background cleaner service, or {@code null} if fast deletion is not enabled.
-     * When set, {@link #fastDelete(Path)} delegates to this service, passing the per-module
-     * {@link #force} and {@link #retryOnError} values so that each module's configuration
+     * When set, {@link #fastDelete(Path)} delegates to this service, passing the per-subproject
+     * {@link #force} and {@link #retryOnError} values so that each subproject's configuration
      * is respected even though the background thread is shared.
      */
     private BackgroundCleaner backgroundCleaner;
@@ -336,7 +336,7 @@ class Cleaner implements FileVisitor<Path> {
      * @return whether this method was able to register the background task
      * @throws IOException if an error occurred while preparing the task before execution in a background thread
      */
-    boolean fastDelete(Path baseDir) throws IOException {
+    private boolean fastDelete(Path baseDir) throws IOException {
         if (backgroundCleaner != null) {
             return backgroundCleaner.fastDelete(baseDir, force, retryOnError);
         }
@@ -346,7 +346,7 @@ class Cleaner implements FileVisitor<Path> {
     /**
      * Returns an error message to show to user if the fast delete failed.
      */
-    String fastDeleteError(IOException e) {
+    private String fastDeleteError(IOException e) {
         if (backgroundCleaner != null) {
             return backgroundCleaner.fastDeleteError(e);
         }

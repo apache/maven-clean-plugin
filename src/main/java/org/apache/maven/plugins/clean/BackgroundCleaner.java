@@ -46,15 +46,15 @@ import org.apache.maven.api.plugin.Log;
 
 /**
  * A session-scoped service that moves directories to a staging area and deletes them in a background thread.
- * A single instance is shared across all modules in a reactor build via {@link SessionData},
- * ensuring only one background thread and one session listener regardless of the number of modules.
+ * A single instance is shared across all subprojects in a reactor build via {@link SessionData},
+ * ensuring only one background thread and one session listener regardless of the number of subprojects.
  *
- * <p>This class does <em>not</em> extend {@link Cleaner}. Each module creates its own {@link Cleaner}
- * with per-module configuration ({@code force}, {@code retryOnError}, etc.) and attaches this shared
- * service via {@link Cleaner#setBackgroundCleaner(BackgroundCleaner)}. The per-module values are
+ * <p>This class does <em>not</em> extend {@link Cleaner}. Each subproject creates its own {@link Cleaner}
+ * with per-subproject configuration ({@code force}, {@code retryOnError}, etc.) and attaches this shared
+ * service via {@link Cleaner#setBackgroundCleaner(BackgroundCleaner)}. The per-subproject values are
  * passed to {@link #fastDelete(Path, boolean, boolean)} and captured alongside each directory so
- * that background deletion respects the configuration of the module that requested the deletion,
- * even in multi-module builds where modules configure the clean plugin differently.</p>
+ * that background deletion respects the configuration of the subproject that requested the deletion,
+ * even in multi-subproject builds where subprojects configure the clean plugin differently.</p>
  *
  * <h4>Background deletion strategy</h4>
  * Instead of the per-file retry used by the foreground {@link Cleaner} (which calls {@code System.gc()}
@@ -81,7 +81,7 @@ final class BackgroundCleaner implements Listener, Runnable {
      * Key for storing the shared {@code BackgroundCleaner} instance in {@link SessionData}.
      * Using {@link SessionData#computeIfAbsent} ensures that only one instance, one background
      * thread, and one session listener are created per Maven session, regardless of the number
-     * of modules in the reactor.
+     * of subprojects in the reactor.
      */
     private static final SessionData.Key<BackgroundCleaner> KEY = SessionData.key(BackgroundCleaner.class);
 
@@ -94,8 +94,8 @@ final class BackgroundCleaner implements Listener, Runnable {
 
     /**
      * A directory queued for deferred deletion (when {@link FastMode#AT_END} or {@link FastMode#DEFER}).
-     * Captures the per-module {@code force} and {@code retryOnError} values at submission time
-     * so that background deletion respects the originating module's configuration.
+     * Captures the per-subproject {@code force} and {@code retryOnError} values at submission time
+     * so that background deletion respects the originating subproject's configuration.
      */
     private record DeferredDeletion(Path dir, boolean force, boolean retryOnError) {}
 
@@ -184,7 +184,7 @@ final class BackgroundCleaner implements Listener, Runnable {
 
     /**
      * Returns the session-scoped {@code BackgroundCleaner}, creating it on first access.
-     * The instance is stored in {@link SessionData} so that all modules in a reactor
+     * The instance is stored in {@link SessionData} so that all subprojects in a reactor
      * share the same background thread and session listener.
      *
      * @param session   the Maven session to be used
@@ -202,7 +202,7 @@ final class BackgroundCleaner implements Listener, Runnable {
      * Scans the fast directory for leftover directories from previous (possibly killed) builds
      * and queues them for background deletion. This restores the cleanup behavior that was
      * present in the singleton pattern of version 3.5.0 but was lost when switching to
-     * per-module instances.
+     * per-subproject instances.
      */
     private void scanForLeftovers() {
         if (Files.isDirectory(fastDir)) {
@@ -235,7 +235,7 @@ final class BackgroundCleaner implements Listener, Runnable {
 
     /**
      * Deletes the specified directory and its contents in a background thread.
-     * This method is synchronized to support concurrent calls from parallel module builds.
+     * This method is synchronized to support concurrent calls from parallel subproject builds.
      *
      * @param baseDir       the directory to delete, must not be {@code null}
      * @param force         whether to force the deletion of read-only files
@@ -254,13 +254,13 @@ final class BackgroundCleaner implements Listener, Runnable {
         /*
          * The default directory is `${maven.multiModuleProjectDirectory}/target/.clean`.
          * This is fine when cleaning a multi-project, in which case this directory will
-         * be shared by all sub-projects and should not interfere with any sub-project.
+         * be shared by all subprojects and should not interfere with any subproject.
          * However, when cleaning a single project, that default directory may be inside
          * the `target` directory to delete. In such case, we need a 3 steps process:
          *
          *  1) The `target` directory is renamed to temporary name inside the same parent directory.
          *  2) A new `target` directory is created with a `.clean` sub-folder (after this `if` block).
-         *  3) The directory at 1 is moved to 2 as if it was the target directory of a sub-project.
+         *  3) The directory at 1 is moved to 2 as if it was the target directory of a subproject.
          *
          * Note that we have to use `toAbsolutePath()` instead of `toRealPath()`
          * because `fastDir` may not exist yet.
@@ -286,7 +286,7 @@ final class BackgroundCleaner implements Listener, Runnable {
         }
         /*
          * Create a temporary directory inside `fastDir` and all parent directories if needed.
-         * The prefix is the name of parent directory, which is usually the sub-project name.
+         * The prefix is the name of parent directory, which is usually the subproject name.
          * It allows to recognize the target directory when all of them are moved to the same
          * `${maven.multiModuleProjectDirectory}/target/.clean` directory.
          */
