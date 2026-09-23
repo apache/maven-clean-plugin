@@ -255,8 +255,14 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
     }
 
     /**
-     * Deletes the given directory without logging messages and without throwing {@link IOException}.
+     * Deletes the given directory without throwing {@link IOException}.
      * The exceptions are stored for reporting after the end of the session.
+     *
+     * <p>Uses a copy of this cleaner ({@link Cleaner#Cleaner(Cleaner)}) which shares
+     * the {@code retryOnError} configuration. The batch-retry strategy in
+     * {@link Cleaner#delete(Path)} ({@value Cleaner#BATCH_RETRY_DELAY_MS}ms sleep
+     * after the full tree walk) applies automatically — no per-file {@code System.gc()}
+     * is called.</p>
      *
      * <h4>Thread safety</h4>
      * Contrarily to most other methods in {@code BackgroundCleaner}, this method is
@@ -264,7 +270,7 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
      */
     private void deleteSilently(final Path dir) {
         try {
-            Files.walkFileTree(dir, Set.of(), Integer.MAX_VALUE, new Cleaner(this));
+            new Cleaner(this).delete(dir);
         } catch (IOException e) {
             errorOccurred(e);
         }

@@ -32,11 +32,11 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.maven.api.annotations.Nonnull;
@@ -88,6 +88,13 @@ class Cleaner implements FileVisitor<Path> {
      * @see #logDelete(Path, BasicFileAttributes)
      */
     private boolean reallyDeletedLastFile;
+
+    /**
+     * Whether the last call to {@link #tryDelete(Path)} returned {@code true} only because the
+     * path was added to {@link #retryQueue} (i.e., not actually deleted yet). When this is
+     * {@code true}, the caller should suppress the deletion log message.
+     */
+    private boolean pendingRetry;
 
     /**
      * The service to use for creating include and exclude filters.
@@ -145,16 +152,33 @@ class Cleaner implements FileVisitor<Path> {
     private final boolean retryOnError;
 
     /**
-     * The delays (in milliseconds) if {@link #retryOnError} is {@code true}.
-     * The length of this array is the maximal number of new attempts.
+     * Delay in milliseconds for the single batch retry after a full tree walk.
+     * {@link BackgroundCleaner} reuses this constant via {@link #delete(Path)} (called from
+     * {@code deleteSilently}): both the foreground and background clean paths apply a single sleep
+     * before retrying all failures, without any per-file {@code System.gc()} call.
+     *
+     * @see #delete(Path)
      */
-    private static final int[] RETRY_DELAYS = new int[] {50, 250, 750};
+    static final int BATCH_RETRY_DELAY_MS = 250;
 
     /**
      * Number of files that we failed to delete.
      * This is incremented only if {@link #failOnError} is {@code false}, otherwise exceptions are thrown.
      */
     private int failureCount;
+
+    /**
+     * Paths that could not be deleted during the tree walk and should be retried as a batch.
+     * Collected by {@link #tryDelete(Path)} when {@link #retryOnError} is {@code true} and the
+     * first deletion attempt fails. After {@link Files#walkFileTree(Path, java.util.Set, int, FileVisitor)}
+     * completes, {@link #delete(Path)} sleeps once ({@value #BATCH_RETRY_DELAY_MS}ms) and retries
+     * each path in this list.
+     *
+     * <p>The list is in walk order: files appear before their containing directory (because
+     * {@code walkFileTree} visits files in {@code visitFile} before the directory in
+     * {@code postVisitDirectory}), which is the correct deletion order.</p>
+     */
+    private List<Path> retryQueue;
 
     /**
      * Whether each directory level contains at least one excluded file.
@@ -294,7 +318,37 @@ class Cleaner implements FileVisitor<Path> {
                 logger.debug(fastDeleteError(e), e);
             }
         }
+        if (retryOnError) {
+            retryQueue = new ArrayList<>();
+        }
         Files.walkFileTree(basedir, options, Integer.MAX_VALUE, this);
+        /*
+         * Batch retry: if any deletions failed during the walk, sleep once and retry all of them.
+         * This is the same strategy used by BackgroundCleaner.deleteInBackground() (see MCLEAN-102):
+         * a single sleep lets external processes (virus scanners, search indexers) release file locks,
+         * without the stop-the-world System.gc() calls and per-file sleep loops that were used before.
+         */
+        if (retryQueue != null && !retryQueue.isEmpty()) {
+            try {
+                Thread.sleep(BATCH_RETRY_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            for (Path path : retryQueue) {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    if (logger.isWarnEnabled()) {
+                        logger.warn("Failed to delete " + path + " after batch retry", e);
+                    }
+                    failureCount++;
+                    if (failOnError) {
+                        throw e;
+                    }
+                }
+            }
+            retryQueue = null;
+        }
     }
 
     /**
@@ -355,7 +409,7 @@ class Cleaner implements FileVisitor<Path> {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
         if (fileMatcher.matches(file) && tryDelete(file)) {
-            if (listDeletedFiles) {
+            if (listDeletedFiles && !pendingRetry) {
                 logDelete(file, attrs);
             }
         } else {
@@ -400,7 +454,7 @@ class Cleaner implements FileVisitor<Path> {
             }
         }
         if (canDelete && tryDelete(dir)) {
-            if (listDeletedFiles) {
+            if (listDeletedFiles && !pendingRetry) {
                 logDelete(dir, null);
             }
         } else {
@@ -476,67 +530,74 @@ class Cleaner implements FileVisitor<Path> {
     }
 
     /**
-     * Deletes the specified file or directory.
+     * Attempts to delete the specified file or directory (one attempt only during the walk phase).
      * If the path denotes a symlink, only the link is removed. Its target is left untouched.
      * This method returns {@code true} if the file has been deleted, or {@code false} if the
      * file does not exist or if an {@link IOException} occurred but {@link #failOnError} is
      * {@code false}.
      *
+     * <h4>Retry strategy</h4>
+     * If deletion fails with an {@link AccessDeniedException} and {@code force} is enabled,
+     * this method first tries to make the file writable and retries <em>immediately</em>
+     * (this is a permissions fix, not a timing retry).
+     * For all other transient failures (e.g. Windows file locks held by virus scanners),
+     * the path is added to {@link #retryQueue} and the batch retry in {@link #delete(Path)}
+     * will retry it after a single {@value #BATCH_RETRY_DELAY_MS}ms sleep — without calling
+     * {@code System.gc()} or sleeping per file.
+     *
      * <h4>Auxiliary information as side-effect</h4>
      * This method sets the {@link #reallyDeletedLastFile} flag to whether this method really deleted the file.
      * If that flag is {@code false} after this method returned {@code true}, then the file has been deleted by
-     * some concurrent process before this method tried to deleted the file.
+     * some concurrent process before this method tried to delete the file.
      * That flag is used for logging purpose only.
      *
      * @param  file the file/directory to delete, must not be {@code null}
-     * @return whether the file has been deleted or did not existed anymore by the time this method is invoked
+     * @return whether the file has been deleted or did not exist anymore by the time this method is invoked
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
-    @SuppressWarnings("SleepWhileInLoop")
     private boolean tryDelete(final Path file) throws IOException {
+        pendingRetry = false;
         try {
             reallyDeletedLastFile = Files.deleteIfExists(file);
             return true;
         } catch (IOException failure) {
-            boolean tryWritable = force && failure instanceof AccessDeniedException;
-            if (tryWritable || retryOnError) {
-                final Set<Path> madeWritable; // Safety against never-ending loops.
-                if (force) {
-                    madeWritable = new HashSet<>();
-                    madeWritable.add(null); // For having `add(null)` to return `false`.
-                } else {
-                    madeWritable = null;
-                }
-                final var alreadyReported = new HashMap<Class<?>, Set<String>>(); // For avoiding repetition.
-                isNewError(alreadyReported, failure);
-                int delayIndex = 0;
-                while (delayIndex < RETRY_DELAYS.length) {
-                    if (tryWritable) {
-                        tryWritable = madeWritable.add(setWritable(file, currentDepth));
-                        // `true` if we successfully changed permission, in which case we will skip the delay.
-                    }
-                    if (!tryWritable) {
-                        if (ON_WINDOWS) {
-                            // Try to release any locks held by non-closed files.
-                            System.gc();
-                        }
-                        try {
-                            Thread.sleep(RETRY_DELAYS[delayIndex++]);
-                        } catch (InterruptedException e) {
-                            failure.addSuppressed(e);
-                            throw failure;
-                        }
-                    }
+            /*
+             * If force=true and the failure is an AccessDeniedException, try to make the file
+             * writable and retry immediately. This is a permissions fix (not a timing retry)
+             * and is safe to do inline without a sleep.
+             */
+            if (force && failure instanceof AccessDeniedException) {
+                final Set<Path> madeWritable = new HashSet<>();
+                madeWritable.add(null); // sentinel so add(null) returns false
+                while (madeWritable.add(setWritable(file, currentDepth))) {
                     try {
                         reallyDeletedLastFile = Files.deleteIfExists(file);
                         return true;
                     } catch (IOException again) {
-                        tryWritable = force && failure instanceof AccessDeniedException;
-                        if (isNewError(alreadyReported, again)) {
-                            failure.addSuppressed(again);
+                        if (!(again instanceof AccessDeniedException)) {
+                            failure = again;
+                            break;
                         }
+                        failure = again;
                     }
                 }
+            }
+            /*
+             * The deletion failed. If retryOnError=true, add the path to the batch retry queue
+             * rather than sleeping here. The batch retry in delete(Path) will sleep once after
+             * the full tree walk and retry all failures together (see MCLEAN-102 / #281).
+             * No System.gc() is called — that is an unreliable, stop-the-world hint.
+             *
+             * Return true (tentatively successful) so that the caller does not mark the parent
+             * directory as non-empty: if the batch retry succeeds for this path, the parent
+             * directory will also be retried and deleted. If the batch retry also fails, the
+             * directory deletion will fail with DirectoryNotEmptyException and be reported.
+             */
+            if (retryQueue != null) {
+                retryQueue.add(file);
+                reallyDeletedLastFile = false;
+                pendingRetry = true;
+                return true; // tentatively: we expect the retry to succeed
             }
             reallyDeletedLastFile = false; // As a matter of principle, but not really needed.
             if (logger.isWarnEnabled()) {
@@ -548,13 +609,6 @@ class Cleaner implements FileVisitor<Path> {
             }
             return false;
         }
-    }
-
-    /**
-     * Returns {@code true} if the given exception has not been reported before.
-     */
-    private static boolean isNewError(Map<Class<?>, Set<String>> reported, Exception e) {
-        return reported.computeIfAbsent(e.getClass(), (key) -> new HashSet<>()).add(e.getMessage());
     }
 
     /**
