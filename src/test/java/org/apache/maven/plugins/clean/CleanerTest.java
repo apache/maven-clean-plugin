@@ -246,5 +246,6 @@ class CleanerTest {
         cleaner.delete(link);
         assertFalse(exists(target));
         verify(log, never()).debug(any(CharSequence.class));
+        verify(log, never()).debug(any(CharSequence.class), any(Throwable.class));
     }
 }
