@@ -19,10 +19,15 @@
 package org.apache.maven.plugins.clean;
 
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,12 +40,32 @@ import org.apache.maven.api.Event;
 import org.apache.maven.api.EventType;
 import org.apache.maven.api.Listener;
 import org.apache.maven.api.Session;
+import org.apache.maven.api.SessionData;
 import org.apache.maven.api.annotations.Nonnull;
 import org.apache.maven.api.plugin.Log;
-import org.apache.maven.api.services.PathMatcherFactory;
 
 /**
- * A cleaner potentially executed by background threads.
+ * A session-scoped service that moves directories to a staging area and deletes them in a background thread.
+ * A single instance is shared across all subprojects in a reactor build via {@link SessionData},
+ * ensuring only one background thread and one session listener regardless of the number of subprojects.
+ *
+ * <p>This class does <em>not</em> extend {@link Cleaner}. Each subproject creates its own {@link Cleaner}
+ * with per-subproject configuration ({@code force}, {@code retryOnError}, etc.) and attaches this shared
+ * service via {@link Cleaner#setBackgroundCleaner(BackgroundCleaner)}. The per-subproject values are
+ * passed to {@link #fastDelete(Path, boolean, boolean)} and captured alongside each directory so
+ * that background deletion respects the configuration of the subproject that requested the deletion,
+ * even in multi-subproject builds where subprojects configure the clean plugin differently.</p>
+ *
+ * <h4>Background deletion strategy</h4>
+ * Instead of the per-file retry used by the foreground {@link Cleaner} (which calls {@code System.gc()}
+ * on Windows, causing JVM-wide stop-the-world pauses — see MCLEAN-102), this class uses a batch retry
+ * strategy: walk the entire tree attempting each deletion once, then sleep once and retry all failures
+ * together. This eliminates the stop-the-world pauses that caused a 50% performance regression on
+ * multi-core Windows machines.
+ *
+ * <h4>Leftover cleanup</h4>
+ * On first creation, this class scans the staging directory for leftovers from previous (possibly
+ * killed) builds and queues them for background deletion.
  *
  * <h4>Limitations</h4>
  * This class can be used for deleting {@link Path} only, not {@link Fileset}, because this class cannot handle
@@ -48,13 +73,43 @@ import org.apache.maven.api.services.PathMatcherFactory;
  *
  * @author Benjamin Bentmann
  * @author Martin Desruisseaux
+ * @author Guillaume Nodet
  */
-final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
+final class BackgroundCleaner implements Listener, Runnable {
+
+    /**
+     * Key for storing the shared {@code BackgroundCleaner} instance in {@link SessionData}.
+     * Using {@link SessionData#computeIfAbsent} ensures that only one instance, one background
+     * thread, and one session listener are created per Maven session, regardless of the number
+     * of subprojects in the reactor.
+     */
+    private static final SessionData.Key<BackgroundCleaner> KEY = SessionData.key(BackgroundCleaner.class);
+
+    /**
+     * Delay in milliseconds before retrying failed deletions in batch.
+     * A single sleep after the entire tree walk replaces the per-file
+     * {@code System.gc()} + sleep that caused MCLEAN-102.
+     */
+    private static final int BATCH_RETRY_DELAY_MS = 250;
+
+    /**
+     * A directory queued for deferred deletion (when {@link FastMode#AT_END} or {@link FastMode#DEFER}).
+     * Captures the per-subproject {@code force} and {@code retryOnError} values at submission time
+     * so that background deletion respects the originating subproject's configuration.
+     */
+    private record DeferredDeletion(Path dir, boolean force, boolean retryOnError) {}
+
     /**
      * The maven session.
      */
     @Nonnull
     private final Session session;
+
+    /**
+     * The logger where to send information about what the plugin is doing.
+     */
+    @Nonnull
+    private final Log logger;
 
     /**
      * The directory where to temporarily move the files to delete.
@@ -78,10 +133,10 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
     private final ExecutorService executor;
 
     /**
-     * Files to delete at the end of the session instead of in background thread.
+     * Directories to delete at the end of the session instead of in background thread.
      * This is unused ({@code null}) for {@link FastMode#BACKGROUND}.
      */
-    private final List<Path> filesToDeleteAtEnd;
+    private final List<DeferredDeletion> filesToDeleteAtEnd;
 
     /**
      * Directories to delete last, after the executor has been shutdown, and only if they are empty.
@@ -99,56 +154,92 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
     private IOException errors;
 
     /**
-     * Whether at least one deletion task has been queued.
-     */
-    private boolean started;
-
-    /**
      * Whether to disable the deletion of files in background threads.
      * This is used for avoiding to repeat the same warning many times
      * when the {@link #fastDir} directory does not exist.
+     *
+     * <p>This field is written by {@link #fastDeleteError(IOException)} without holding any lock
+     * (to avoid a lock-ordering risk), and read by the synchronized {@link #fastDelete} method.
+     * Declaring it {@code volatile} ensures that the write is immediately visible to all threads
+     * without requiring the reader to hold the same monitor as the writer.</p>
      */
-    private boolean disabled;
+    private volatile boolean disabled;
 
     /**
-     * Creates a new cleaner to be executed in a background thread.
+     * Creates a new background cleaner service.
+     * Use {@link #getOrCreate} to obtain a session-scoped instance.
      *
-     * @param session         the Maven session to be used
-     * @param matcherFactory  the service to use for creating include and exclude filters.
-     * @param logger          the logger to use
-     * @param verbose         whether to perform verbose logging
-     * @param fastDir         the explicit configured directory or to be deleted in fast mode
-     * @param fastMode        the fast deletion mode
-     * @param followSymlinks  whether to follow symlinks
-     * @param force           whether to force the deletion of read-only files
-     * @param failOnError     whether to abort with an exception in case a selected file/directory could not be deleted
-     * @param retryOnError    whether to undertake additional delete attempts in case the first attempt failed
+     * @param session   the Maven session to be used
+     * @param logger    the logger to use
+     * @param fastDir   the directory where to temporarily move the files to delete
+     * @param fastMode  the fast deletion mode
      */
-    @SuppressWarnings("checkstyle:ParameterNumber")
-    BackgroundCleaner(
-            @Nonnull Session session,
-            @Nonnull PathMatcherFactory matcherFactory,
-            @Nonnull Log logger,
-            boolean verbose,
-            @Nonnull Path fastDir,
-            @Nonnull FastMode fastMode,
-            boolean followSymlinks,
-            boolean force,
-            boolean failOnError,
-            boolean retryOnError) {
-        super(matcherFactory, logger, verbose, followSymlinks, force, failOnError, retryOnError);
+    private BackgroundCleaner(
+            @Nonnull Session session, @Nonnull Log logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
         this.session = session;
+        this.logger = logger;
         this.fastDir = fastDir;
         this.fastMode = fastMode;
         filesToDeleteAtEnd = (fastMode != FastMode.BACKGROUND) ? new ArrayList<>() : null;
         directoriesToDeleteIfEmpty = new LinkedHashSet<>(); // Will need to delete in order.
         executor = Executors.newSingleThreadExecutor((task) -> new Thread(task, "mvn-background-cleaner"));
+        session.registerListener(this);
+        scanForLeftovers();
+    }
+
+    /**
+     * Returns the session-scoped {@code BackgroundCleaner}, creating it on first access.
+     * The instance is stored in {@link SessionData} so that all subprojects in a reactor
+     * share the same background thread and session listener.
+     *
+     * @param session   the Maven session to be used
+     * @param logger    the logger to use
+     * @param fastDir   the directory where to temporarily move the files to delete
+     * @param fastMode  the fast deletion mode
+     * @return the shared background cleaner instance for the session
+     */
+    static BackgroundCleaner getOrCreate(
+            @Nonnull Session session, @Nonnull Log logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
+        BackgroundCleaner bc =
+                session.getData().computeIfAbsent(KEY, () -> new BackgroundCleaner(session, logger, fastDir, fastMode));
+        if (!bc.fastDir.equals(fastDir) || bc.fastMode != fastMode) {
+            logger.debug("BackgroundCleaner already initialized with fastDir=" + bc.fastDir
+                    + ", fastMode=" + bc.fastMode + "; ignoring fastDir=" + fastDir
+                    + ", fastMode=" + fastMode + " from this subproject.");
+        }
+        return bc;
+    }
+
+    /**
+     * Scans the fast directory for leftover directories from previous (possibly killed) builds
+     * and queues them for background deletion. This restores the cleanup behavior that was
+     * present in the singleton pattern of version 3.5.0 but was lost when switching to
+     * per-subproject instances.
+     *
+     * <p><b>Limitation:</b> leftovers are always deleted with {@code force=false}.
+     * Because the previous build's configuration is not persisted, we cannot know
+     * whether it used {@code force=true}. As a consequence, read-only files that
+     * survived a killed build will not be force-deleted here; they will remain until
+     * the user runs a new clean with {@code force=true}.</p>
+     */
+    private void scanForLeftovers() {
+        if (Files.isDirectory(fastDir)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(fastDir)) {
+                for (Path child : stream) {
+                    if (Files.isDirectory(child)) {
+                        logger.debug("Cleaning leftover directory from previous build: " + child);
+                        executor.submit(() -> deleteInBackground(child, false, true));
+                    }
+                }
+            } catch (IOException e) {
+                logger.debug("Failed to scan for leftover directories in " + fastDir + ": " + e);
+            }
+        }
     }
 
     /**
      * Returns an error message to show to user if the fast delete failed.
      */
-    @Override
     String fastDeleteError(IOException e) {
         disabled = true;
         var message = new StringBuilder("Unable to fast delete directory");
@@ -162,13 +253,15 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
 
     /**
      * Deletes the specified directory and its contents in a background thread.
+     * This method is synchronized to support concurrent calls from parallel subproject builds.
      *
-     * @param basedir the directory to delete, must not be {@code null}
+     * @param baseDir       the directory to delete, must not be {@code null}
+     * @param force         whether to force the deletion of read-only files
+     * @param retryOnError  whether to undertake a batch retry of failed deletions
      * @return whether this method was able to register the background task
      * @throws IOException if an error occurred while preparing the task before execution in a background thread
      */
-    @Override
-    boolean fastDelete(Path baseDir) throws IOException {
+    synchronized boolean fastDelete(Path baseDir, boolean force, boolean retryOnError) throws IOException {
         if (disabled) {
             return false;
         }
@@ -176,20 +269,16 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
         if (parent == null) {
             return false;
         }
-        if (!started) {
-            started = true;
-            session.registerListener(this);
-        }
         /*
          * The default directory is `${maven.multiModuleProjectDirectory}/target/.clean`.
          * This is fine when cleaning a multi-project, in which case this directory will
-         * be shared by all sub-projects and should not interfere with any sub-project.
+         * be shared by all subprojects and should not interfere with any subproject.
          * However, when cleaning a single project, that default directory may be inside
          * the `target` directory to delete. In such case, we need a 3 steps process:
          *
          *  1) The `target` directory is renamed to temporary name inside the same parent directory.
          *  2) A new `target` directory is created with a `.clean` sub-folder (after this `if` block).
-         *  3) The directory at 1 is moved to 2 as if it was the target directory of a sub-project.
+         *  3) The directory at 1 is moved to 2 as if it was the target directory of a subproject.
          *
          * Note that we have to use `toAbsolutePath()` instead of `toRealPath()`
          * because `fastDir` may not exist yet.
@@ -215,7 +304,7 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
         }
         /*
          * Create a temporary directory inside `fastDir` and all parent directories if needed.
-         * The prefix is the name of parent directory, which is usually the sub-project name.
+         * The prefix is the name of parent directory, which is usually the subproject name.
          * It allows to recognize the target directory when all of them are moved to the same
          * `${maven.multiModuleProjectDirectory}/target/.clean` directory.
          */
@@ -239,9 +328,9 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
         try {
             final Path dir = Files.move(baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING);
             if (filesToDeleteAtEnd != null) {
-                filesToDeleteAtEnd.add(dir);
+                filesToDeleteAtEnd.add(new DeferredDeletion(dir, force, retryOnError));
             } else {
-                executor.submit(() -> deleteSilently(dir));
+                executor.submit(() -> deleteInBackground(dir, force, retryOnError));
             }
         } catch (IOException | RuntimeException e) {
             try {
@@ -255,18 +344,111 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
     }
 
     /**
-     * Deletes the given directory without logging messages and without throwing {@link IOException}.
-     * The exceptions are stored for reporting after the end of the session.
+     * Deletes the given directory in a background thread using batch retry.
+     * Unlike the foreground {@link Cleaner}, this method does not call {@code System.gc()}
+     * or sleep per file, avoiding the stop-the-world JVM pauses that caused the performance
+     * regression described in MCLEAN-102.
+     *
+     * <p>The deletion proceeds in two passes:</p>
+     * <ol>
+     *   <li><b>Walk:</b> traverse the file tree and attempt to delete each file/directory once.
+     *       Failures are silently collected without retrying.</li>
+     *   <li><b>Batch retry:</b> if {@code retryOnError} is enabled and there were failures,
+     *       sleep once ({@value #BATCH_RETRY_DELAY_MS}ms) to let external processes release
+     *       file locks, then retry all failures together.</li>
+     * </ol>
+     *
+     * <p>Any files that still cannot be deleted after the batch retry will be cleaned up
+     * by the {@linkplain #scanForLeftovers() leftover scan} on the next build.</p>
      *
      * <h4>Thread safety</h4>
-     * Contrarily to most other methods in {@code BackgroundCleaner}, this method is
-     * thread-safe because it uses a copy of this cleaner for walking in the file tree.
+     * This method is designed to run in the background executor thread. It does not share
+     * any mutable state with the main thread except through {@link #errorOccurred(IOException)},
+     * which is synchronized.
+     *
+     * @param dir          the directory to delete
+     * @param force        whether to force the deletion of read-only files
+     * @param retryOnError whether to undertake a batch retry of failed deletions
      */
-    private void deleteSilently(final Path dir) {
+    private void deleteInBackground(Path dir, boolean force, boolean retryOnError) {
+        logger.debug("Deleting " + dir + " in background.");
+        List<Path> failures = new ArrayList<>();
         try {
-            Files.walkFileTree(dir, Set.of(), Integer.MAX_VALUE, new Cleaner(this));
+            Files.walkFileTree(dir, Set.of(), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (!tryDeleteOnce(file, force)) {
+                        failures.add(file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path d, IOException exc) {
+                    if (!tryDeleteOnce(d, force)) {
+                        failures.add(d);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    failures.add(file);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException e) {
             errorOccurred(e);
+            return;
+        }
+        if (!failures.isEmpty() && retryOnError) {
+            try {
+                Thread.sleep(BATCH_RETRY_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            int remaining = 0;
+            for (Path path : failures) {
+                if (!tryDeleteOnce(path, force)) {
+                    remaining++;
+                }
+            }
+            if (remaining > 0) {
+                errorOccurred(new IOException("Failed to delete " + remaining + " path(s) during background clean;"
+                        + " will retry on next build"));
+            }
+        } else if (!failures.isEmpty()) {
+            errorOccurred(new IOException("Failed to delete " + failures.size() + " path(s) during background clean"));
+        }
+    }
+
+    /**
+     * Tries to delete a single file or directory once, without retry delays or {@code System.gc()}.
+     * If {@code force} is enabled and deletion fails with {@link AccessDeniedException},
+     * the file is made writable and deletion is retried immediately (once).
+     *
+     * @param file  the file or directory to delete
+     * @param force whether to make read-only files writable before retrying
+     * @return {@code true} if the file was deleted or did not exist
+     */
+    private static boolean tryDeleteOnce(Path file, boolean force) {
+        try {
+            Files.deleteIfExists(file);
+            return true;
+        } catch (AccessDeniedException e) {
+            if (force) {
+                try {
+                    Cleaner.setWritable(file, 0);
+                    Files.deleteIfExists(file);
+                    return true;
+                } catch (IOException retry) {
+                    return false;
+                }
+            }
+            return false;
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -293,7 +475,8 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
         }
         session.unregisterListener(this);
         if (filesToDeleteAtEnd != null) {
-            filesToDeleteAtEnd.forEach((dir) -> executor.submit(() -> deleteSilently(dir)));
+            filesToDeleteAtEnd.forEach(
+                    (d) -> executor.submit(() -> deleteInBackground(d.dir(), d.force(), d.retryOnError())));
         }
         if (fastMode == FastMode.DEFER) {
             executor.submit(this);
