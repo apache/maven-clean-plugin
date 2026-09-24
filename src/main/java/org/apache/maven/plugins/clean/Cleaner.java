@@ -333,6 +333,11 @@ class Cleaner implements FileVisitor<Path> {
                 Thread.sleep(BATCH_RETRY_DELAY_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                // Interrupted during the batch-retry sleep. Restore the flag and stop retrying;
+                // any remaining paths in the queue are abandoned. The caller's next blocking
+                // call (e.g. BlockingQueue.take() in BackgroundCleaner) will see the flag.
+                retryQueue = null;
+                return;
             }
             for (Path path : retryQueue) {
                 try {
@@ -575,9 +580,11 @@ class Cleaner implements FileVisitor<Path> {
                         return true;
                     } catch (IOException again) {
                         if (!(again instanceof AccessDeniedException)) {
+                            failure.addSuppressed(again);
                             failure = again;
                             break;
                         }
+                        failure.addSuppressed(again);
                         failure = again;
                     }
                 }
