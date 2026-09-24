@@ -32,10 +32,6 @@ under the License.
   <name>Child A</name>
   <description>Check for proper cleaning of file sets with absolute paths during reactor build.</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>

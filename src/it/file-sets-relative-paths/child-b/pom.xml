@@ -33,7 +33,6 @@ under the License.
   <description>Check for proper cleaning of file sets with relative paths during reactor build.</description>
 
   <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <!-- NOTE: It is part of the test design that this path is relative (to the project base directory) -->
     <deploy.dir>deploy</deploy.dir>
   </properties>

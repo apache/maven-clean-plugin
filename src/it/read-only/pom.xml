@@ -27,10 +27,6 @@ under the License.
   <name>Test for clean</name>
   <description>Check for proper deletion (or not) of read-only files.</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>

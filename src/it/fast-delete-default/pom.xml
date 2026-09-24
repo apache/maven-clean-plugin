@@ -28,10 +28,6 @@ under the License.
   <description>Check fast delete with default configuration. The default directory is `target/.clean`,
     which implies additional work as it is a directory inside the directory to delete.</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>

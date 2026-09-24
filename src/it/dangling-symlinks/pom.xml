@@ -26,10 +26,6 @@ under the License.
 
   <description>Check for proper cleaning of dangling symlinks (MCLEAN-28).</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>
