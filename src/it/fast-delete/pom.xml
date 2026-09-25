@@ -28,10 +28,6 @@ under the License.
   <description>Check that fast delete is invoked. For making this test simpler,
     this test uses a `.fastdir` directory outside the `target` directory.</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>

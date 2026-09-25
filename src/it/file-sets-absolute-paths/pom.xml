@@ -32,7 +32,6 @@ under the License.
   </modules>
 
   <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <deploy.dir>@project.build.directory@/it/file-sets-absolute-paths/delete-me</deploy.dir>
   </properties>
 

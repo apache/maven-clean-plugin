@@ -26,10 +26,6 @@ under the License.
 
   <description>Check that symlinks are not followed if requested (MCLEAN-39).</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>

@@ -26,10 +26,6 @@ under the License.
 
   <description>Check for proper handling of includes/excludes during cleaning, especially with varying symlink handling.</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>

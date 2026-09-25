@@ -26,10 +26,6 @@ under the License.
 
   <description>Check for exclusion of default directories from cleaning if requested.</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>

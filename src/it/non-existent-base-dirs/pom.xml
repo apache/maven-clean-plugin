@@ -26,10 +26,6 @@ under the License.
 
   <description>Check that non-existing base directories for clean do not fail the build.</description>
 
-  <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
-
   <build>
     <plugins>
       <plugin>
