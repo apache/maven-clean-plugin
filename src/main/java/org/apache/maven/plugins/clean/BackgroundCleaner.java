@@ -269,7 +269,7 @@ final class BackgroundCleaner implements Listener, Runnable {
                     }
                 }
             } catch (IOException e) {
-                logger.debug("Failed to scan for leftover directories in " + fastDir + ": " + e);
+                logger.debug("Failed to scan for leftover directories in " + fastDir + '.', e);
             }
         }
     }
