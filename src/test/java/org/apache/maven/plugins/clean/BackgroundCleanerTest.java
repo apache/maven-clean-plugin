@@ -136,27 +136,27 @@ class BackgroundCleanerTest {
 
     /**
      * When a second subproject calls {@link BackgroundCleaner#getOrCreate} with a different
-     * {@code fastMode}, a debug-level warning must be emitted (first-wins semantics).
+     * {@code fastMode}, a warn-level message must be emitted (first-wins semantics).
      */
     @Test
-    void getOrCreateLogsDebugOnConfigMismatch(@TempDir Path tempDir) throws IOException {
+    void getOrCreateLogsWarnOnConfigMismatch(@TempDir Path tempDir) throws IOException {
         Path fastDir = tempDir.resolve(".clean");
         Log log = mock(Log.class);
         Session session = mockSession(null);
 
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        // Second call with different fastMode — should log a debug message.
+        // Second call with different fastMode — should log a warn message.
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.AT_END);
 
-        verify(log, atLeastOnce()).debug(any(CharSequence.class));
+        verify(log, atLeastOnce()).warn(any(CharSequence.class));
     }
 
     /**
      * When a second subproject calls {@link BackgroundCleaner#getOrCreate} with the same
-     * parameters, no debug warning about a mismatch must be emitted.
+     * parameters, no warn message about a mismatch must be emitted.
      */
     @Test
-    void getOrCreateNoDebugWhenSameConfig(@TempDir Path tempDir) throws IOException {
+    void getOrCreateNoWarnWhenSameConfig(@TempDir Path tempDir) throws IOException {
         Path fastDir = tempDir.resolve(".clean");
         Log log = mock(Log.class);
         Session session = mockSession(null);
@@ -164,7 +164,7 @@ class BackgroundCleanerTest {
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
 
-        verify(log, never()).debug(any(CharSequence.class));
+        verify(log, never()).warn(any(CharSequence.class));
     }
 
     // -----------------------------------------------------------------------
@@ -212,42 +212,43 @@ class BackgroundCleanerTest {
     // -----------------------------------------------------------------------
 
     /**
-     * With {@code force=true}, {@code tryDeleteOnce} must handle a read-only file by calling
-     * {@link Cleaner#setWritable} and retrying immediately (first-pass force logic), so
-     * that the file is successfully deleted in the background.
+     * With {@code force=true}, {@code tryDeleteOnce} must handle a read-only <em>directory</em>
+     * containing a writable file by calling {@link Cleaner#setWritable} with the correct depth
+     * to walk up to the parent, so that the file is successfully deleted in the background.
      *
-     * <p><b>Note on what this test covers:</b> This exercises the first-pass
-     * {@code force=true} handling in {@code tryDeleteOnce} (i.e., {@code setWritable} +
-     * immediate retry on {@code AccessDeniedException}). The second-pass batch-retry
-     * sleep-and-loop is only reachable when a file fails even after {@code setWritable}
-     * (e.g. a file held open by another process on Windows) and is not exercised here.</p>
+     * <p><b>Note on what this test covers:</b> On POSIX, {@code Files.deleteIfExists} can delete
+     * a read-only <em>file</em> as long as its parent directory is writable. The force-delete branch
+     * is only reached when the <em>directory</em> is read-only (causing {@code AccessDeniedException}).
+     * This test makes the parent directory read-only to exercise that branch.</p>
      *
      * <p><b>Note on assertion strategy:</b> {@code fastDelete} moves the entire {@code target}
-     * tree (including the read-only file) to a staging directory under {@code fastDir}
-     * <em>synchronously</em>. After that move, neither {@code target} nor {@code readOnly}
+     * tree (including the read-only directory) to a staging directory under {@code fastDir}
+     * <em>synchronously</em>. After that move, neither {@code target} nor its contents
      * exist at their original paths — the assertions would pass trivially. The meaningful
      * check is that the staging area itself is empty after {@code onEvent} completes, which
-     * proves that {@code tryDeleteOnce(path, true)} successfully handled the read-only file
-     * inside the staging tree.</p>
+     * proves that {@code tryDeleteOnce(path, true, depth)} successfully handled the read-only
+     * directory inside the staging tree.</p>
      */
     @Test
     @DisabledOnOs(OS.WINDOWS)
-    void forceDeleteHandlesReadOnlyFile(@TempDir Path tempDir) throws Exception {
+    void forceDeleteHandlesReadOnlyDirectory(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
         Path target = createDirectory(tempDir.resolve("target"));
-        Path readOnly = createFile(target.resolve("ro.txt"));
-        // Make the file read-only so the first pass fails.
-        Files.setPosixFilePermissions(readOnly, PosixFilePermissions.fromString("r--r--r--"));
+        Path subDir = createDirectory(target.resolve("subdir"));
+        createFile(subDir.resolve("file.txt"));
+        // Make the directory read-only so Files.deleteIfExists on its children
+        // throws AccessDeniedException — this is the case force=true handles.
+        Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
 
         Log log = mock(Log.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        // force=true, retryOnError=true — retry must make the file writable.
+        // force=true, retryOnError=true — must make the directory writable to delete its contents.
         assertTrue(bc.fastDelete(target, true, true));
 
-        // After fastDelete(), the tree (including the read-only file) is in the staging area.
+        // After fastDelete(), the tree (including the read-only directory) is in the staging area.
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
 
         Event event = mock(Event.class);
@@ -255,8 +256,8 @@ class BackgroundCleanerTest {
         captor.getValue().onEvent(event);
 
         // After onEvent returns, the executor has been drained. The staging directory is
-        // deleted by run() when empty — proving the read-only file was force-deleted.
-        assertFalse(exists(fastDir), "staging directory must be deleted: read-only file must be force-deleted");
+        // deleted by run() when empty — proving the read-only directory was force-deleted.
+        assertFalse(exists(fastDir), "staging directory must be deleted: read-only directory must be force-deleted");
     }
 
     // -----------------------------------------------------------------------

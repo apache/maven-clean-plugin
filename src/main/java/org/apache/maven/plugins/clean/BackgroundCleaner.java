@@ -18,6 +18,7 @@
  */
 package org.apache.maven.plugins.clean;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
@@ -56,6 +57,16 @@ import org.apache.maven.api.plugin.Log;
  * that background deletion respects the configuration of the subproject that requested the deletion,
  * even in multi-subproject builds where subprojects configure the clean plugin differently.</p>
  *
+ * <h4>Session-scoped (first-wins) vs per-subproject configuration</h4>
+ * <ul>
+ *   <li><b>Per-subproject</b> (captured per-call): {@code force}, {@code retryOnError}.</li>
+ *   <li><b>Session-scoped, first-wins</b>: {@code fastDir}, {@code fastMode} — set by the first
+ *       subproject that activates fast clean; subsequent subprojects with different values produce
+ *       a warning and are ignored.</li>
+ *   <li><b>Session-wide side effect</b>: {@code disabled} — if any subproject encounters a fast-delete
+ *       error, fast clean is disabled for all remaining subprojects in the session.</li>
+ * </ul>
+ *
  * <h4>Background deletion strategy</h4>
  * Instead of the per-file retry used by the foreground {@link Cleaner} (which calls {@code System.gc()}
  * on Windows, causing JVM-wide stop-the-world pauses — see MCLEAN-102), this class uses a batch retry
@@ -76,6 +87,11 @@ import org.apache.maven.api.plugin.Log;
  * @author Guillaume Nodet
  */
 final class BackgroundCleaner implements Listener, Runnable {
+
+    /**
+     * Whether the host operating system is from the Windows family.
+     */
+    private static final boolean ON_WINDOWS = (File.separatorChar == '\\');
 
     /**
      * Key for storing the shared {@code BackgroundCleaner} instance in {@link SessionData}.
@@ -183,6 +199,19 @@ final class BackgroundCleaner implements Listener, Runnable {
         filesToDeleteAtEnd = (fastMode != FastMode.BACKGROUND) ? new ArrayList<>() : null;
         directoriesToDeleteIfEmpty = new LinkedHashSet<>(); // Will need to delete in order.
         executor = Executors.newSingleThreadExecutor((task) -> new Thread(task, "mvn-background-cleaner"));
+        // Note: registerListener() and scanForLeftovers() are called by getOrCreate() AFTER
+        // computeIfAbsent() returns, to avoid re-entrant ConcurrentHashMap access and to
+        // prevent `this` from escaping the constructor.
+    }
+
+    /**
+     * Initializes the background cleaner by registering the session listener and scanning
+     * for leftover directories. This method must be called exactly once, immediately after
+     * the instance is created by {@link #getOrCreate}, but outside the
+     * {@link java.util.concurrent.ConcurrentHashMap#computeIfAbsent} mapping function
+     * to avoid re-entrant deadlock.
+     */
+    private void init() {
         session.registerListener(this);
         scanForLeftovers();
     }
@@ -200,10 +229,18 @@ final class BackgroundCleaner implements Listener, Runnable {
      */
     static BackgroundCleaner getOrCreate(
             @Nonnull Session session, @Nonnull Log logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
-        BackgroundCleaner bc =
-                session.getData().computeIfAbsent(KEY, () -> new BackgroundCleaner(session, logger, fastDir, fastMode));
+        boolean[] created = {false};
+        BackgroundCleaner bc = session.getData().computeIfAbsent(KEY, () -> {
+            created[0] = true;
+            return new BackgroundCleaner(session, logger, fastDir, fastMode);
+        });
+        if (created[0]) {
+            // Initialization is deferred to here (outside computeIfAbsent) to avoid
+            // re-entrant ConcurrentHashMap access and `this` escaping the constructor.
+            bc.init();
+        }
         if (!bc.fastDir.equals(fastDir) || bc.fastMode != fastMode) {
-            logger.debug("BackgroundCleaner already initialized with fastDir=" + bc.fastDir
+            logger.warn("BackgroundCleaner already initialized with fastDir=" + bc.fastDir
                     + ", fastMode=" + bc.fastMode + "; ignoring fastDir=" + fastDir
                     + ", fastMode=" + fastMode + " from this subproject.");
         }
@@ -375,9 +412,30 @@ final class BackgroundCleaner implements Listener, Runnable {
         List<Path> failures = new ArrayList<>();
         try {
             Files.walkFileTree(dir, Set.of(), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+                /**
+                 * Current depth relative to the root directory, used by {@link Cleaner#setWritable}
+                 * to walk up to the parent when the file itself is already writable.
+                 */
+                int depth;
+
+                @Override
+                public FileVisitResult preVisitDirectory(Path d, BasicFileAttributes attrs) {
+                    if (ON_WINDOWS && attrs.isOther()) {
+                        // MCLEAN-93: NTFS junctions have isDirectory() and isOther() attributes set.
+                        // Delete the junction itself and skip its contents to avoid deleting the
+                        // contents of the junction target, which may be outside the project.
+                        if (!tryDeleteOnce(d, force, depth)) {
+                            failures.add(d);
+                        }
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    depth++;
+                    return FileVisitResult.CONTINUE;
+                }
+
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (!tryDeleteOnce(file, force)) {
+                    if (!tryDeleteOnce(file, force, depth)) {
                         failures.add(file);
                     }
                     return FileVisitResult.CONTINUE;
@@ -385,7 +443,8 @@ final class BackgroundCleaner implements Listener, Runnable {
 
                 @Override
                 public FileVisitResult postVisitDirectory(Path d, IOException exc) {
-                    if (!tryDeleteOnce(d, force)) {
+                    depth--;
+                    if (!tryDeleteOnce(d, force, depth)) {
                         failures.add(d);
                     }
                     return FileVisitResult.CONTINUE;
@@ -406,40 +465,63 @@ final class BackgroundCleaner implements Listener, Runnable {
                 Thread.sleep(BATCH_RETRY_DELAY_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                // Report collected failures before returning.
+                errorOccurred(buildFailureException(failures));
                 return;
             }
-            int remaining = 0;
+            List<Path> remaining = new ArrayList<>();
             for (Path path : failures) {
-                if (!tryDeleteOnce(path, force)) {
-                    remaining++;
+                if (!tryDeleteOnce(path, force, 0)) {
+                    remaining.add(path);
                 }
             }
-            if (remaining > 0) {
-                errorOccurred(new IOException("Failed to delete " + remaining + " path(s) during background clean;"
-                        + " will retry on next build"));
+            if (!remaining.isEmpty()) {
+                errorOccurred(buildFailureException(remaining));
             }
         } else if (!failures.isEmpty()) {
-            errorOccurred(new IOException("Failed to delete " + failures.size() + " path(s) during background clean"));
+            errorOccurred(buildFailureException(failures));
         }
+    }
+
+    /**
+     * Builds an {@link IOException} that reports the failing paths (capped at 10) and total count.
+     *
+     * @param failures the list of paths that could not be deleted
+     * @return an exception describing the failures
+     */
+    private static IOException buildFailureException(List<Path> failures) {
+        StringBuilder sb = new StringBuilder("Failed to delete ")
+                .append(failures.size())
+                .append(" path(s) during background clean");
+        int limit = Math.min(failures.size(), 10);
+        for (int i = 0; i < limit; i++) {
+            sb.append("\n  ").append(failures.get(i));
+        }
+        if (failures.size() > limit) {
+            sb.append("\n  ... and ").append(failures.size() - limit).append(" more");
+        }
+        return new IOException(sb.toString());
     }
 
     /**
      * Tries to delete a single file or directory once, without retry delays or {@code System.gc()}.
      * If {@code force} is enabled and deletion fails with {@link AccessDeniedException},
-     * the file is made writable and deletion is retried immediately (once).
+     * the file (or its parent directory) is made writable and deletion is retried immediately (once).
      *
      * @param file  the file or directory to delete
      * @param force whether to make read-only files writable before retrying
+     * @param currentDepth the depth of the file relative to the staged root, used by
+     *                     {@link Cleaner#setWritable} to walk up to the parent directory
      * @return {@code true} if the file was deleted or did not exist
      */
-    private static boolean tryDeleteOnce(Path file, boolean force) {
+    private static boolean tryDeleteOnce(Path file, boolean force, int currentDepth) {
         try {
             Files.deleteIfExists(file);
             return true;
         } catch (AccessDeniedException e) {
             if (force) {
                 try {
-                    Cleaner.setWritable(file, 0);
+                    Cleaner.setWritable(file, currentDepth);
                     Files.deleteIfExists(file);
                     return true;
                 } catch (IOException retry) {

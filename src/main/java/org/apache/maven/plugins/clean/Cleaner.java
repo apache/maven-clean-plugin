@@ -57,7 +57,7 @@ import org.apache.maven.api.services.PathMatcherFactory;
  * @author Benjamin Bentmann
  * @author Martin Desruisseaux
  */
-class Cleaner implements FileVisitor<Path> {
+final class Cleaner implements FileVisitor<Path> {
     /**
      * Whether the host operating system is from the Windows family.
      */
@@ -67,7 +67,7 @@ class Cleaner implements FileVisitor<Path> {
      * The logger where to send information or warning messages.
      */
     @Nonnull
-    protected final Log logger;
+    private final Log logger;
 
     /**
      * Whether to send to the logger some information that would normally be at the "debug" level.
@@ -214,31 +214,6 @@ class Cleaner implements FileVisitor<Path> {
     }
 
     /**
-     * Creates a new cleaner with the configuration of the given cleaner as it was a construction time.
-     * An exception is the {@link #followSymlinks} flag which is set to {@code false}. This constructor
-     * is invoked by {@link BackgroundCleaner} before to invoke {@link #delete(Path)} at a moment which
-     * is potentially after some {@link #delete(Fileset)} executions. Because {@link BackgroundCleaner}
-     * can be used only when {@link #followSymlinks} is {@code false}, we know that this flag can be
-     * cleared unconditionally.
-     *
-     * @param other the cleaner from which to copy the configuration
-     */
-    Cleaner(Cleaner other) {
-        // Copy only final fields.
-        matcherFactory = other.matcherFactory;
-        logger = other.logger;
-        verbose = other.verbose;
-        force = other.force;
-        failOnError = other.failOnError;
-        retryOnError = other.retryOnError;
-        listDeletedFiles = other.listDeletedFiles;
-
-        // Non-final fields.
-        fileMatcher = matcherFactory.includesAll();
-        directoryMatcher = fileMatcher;
-    }
-
-    /**
      * Sets the shared background cleaner service for fast deletion.
      * When set, {@link #fastDelete(Path)} will delegate to the background cleaner,
      * passing this cleaner's {@link #force} and {@link #retryOnError} configuration.
@@ -261,7 +236,7 @@ class Cleaner implements FileVisitor<Path> {
      * @param fileset the fileset to delete
      * @throws IOException if a file/directory could not be deleted and {@link #failOnError} is {@code true}
      */
-    public final void delete(@Nonnull Fileset fileset) throws IOException {
+    public void delete(@Nonnull Fileset fileset) throws IOException {
         fileMatcher = matcherFactory.createPathMatcher(
                 fileset.getDirectory(), fileset.getIncludes(), fileset.getExcludes(), fileset.useDefaultExcludes());
         directoryMatcher = matcherFactory.deriveDirectoryMatcher(fileMatcher);
@@ -284,7 +259,7 @@ class Cleaner implements FileVisitor<Path> {
      * @param basedir the directory to delete, must not be {@code null}
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
-    public final void delete(@Nonnull Path basedir) throws IOException {
+    public void delete(@Nonnull Path basedir) throws IOException {
         if (!Files.isDirectory(basedir)) {
             if (Files.notExists(basedir)) {
                 logger.debug("Skipping non-existing directory \"" + basedir + "\".");
