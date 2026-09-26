@@ -143,8 +143,8 @@ class CleanerTest {
      *
      * <p>This test simulates the Windows scenario where a file is temporarily locked by an
      * external process (virus scanner, search indexer): the directory is made non-writable during
-     * the walk, then a background thread restores write permission during the
-     * {@value Cleaner#BATCH_RETRY_DELAY_MS}ms batch-retry sleep, allowing the retry to succeed.
+     * the walk, then a background thread restores write permission during the batch-retry sleep,
+     * allowing the retry to succeed.
      * No {@code System.gc()} is called between attempts — that was the anti-pattern removed by
      * this fix (see issue #281).</p>
      */
@@ -161,7 +161,7 @@ class CleanerTest {
         setPosixFilePermissions(basedir, noWrite);
 
         // Schedule a background thread to restore write permission during the batch-retry sleep.
-        // The batch sleep is BATCH_RETRY_DELAY_MS (250ms); we restore after 50ms to give plenty of margin.
+        // The batch sleep is 250ms; we restore after 50ms to give plenty of margin.
         final CountDownLatch walkStarted = new CountDownLatch(1);
         Thread restorer = new Thread(() -> {
             try {
@@ -179,12 +179,20 @@ class CleanerTest {
 
         // With retryOnError=true, the cleaner should collect the failure and retry after the batch sleep.
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, true);
+        long start = System.nanoTime();
         assertDoesNotThrow(() -> cleaner.delete(basedir));
+        long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
         // The retry should have succeeded: no warning logged, files gone.
         verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
         assertFalse(exists(file), "File should have been deleted by the batch retry");
         assertFalse(exists(basedir), "Base directory should have been deleted by the batch retry");
+
+        // Verify the batch-retry sleep actually ran (at least 200ms to avoid flakiness from scheduling jitter).
+        assertTrue(
+                elapsed >= 200,
+                "Expected batch retry delay of ~250ms but only " + elapsed + "ms elapsed; "
+                        + "the batch retry may not have triggered");
 
         restorer.join(2000);
     }
@@ -192,7 +200,7 @@ class CleanerTest {
     /**
      * Verifies that when {@code retryOnError=true} and a file cannot be deleted even after the
      * batch retry, a warning is logged (once, after the retry — not during the walk).
-     * The batch retry delay ({@value Cleaner#BATCH_RETRY_DELAY_MS}ms) is the only sleep;
+     * The batch retry delay (250 ms) is the only sleep;
      * there is no per-file sleep and no {@code System.gc()} call.
      */
     @Test
@@ -210,10 +218,14 @@ class CleanerTest {
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, true);
         assertDoesNotThrow(() -> cleaner.delete(basedir));
 
-        // Warnings are logged for each path that still fails after the batch retry.
-        // With retryOnError=true: both the file and the directory are queued and both fail,
-        // so at least one (and typically two) warnings are expected.
-        verify(log, org.mockito.Mockito.atLeastOnce()).warn(any(CharSequence.class), any(Throwable.class));
+        // Only one warning should be logged — for the file that could not be deleted.
+        // The directory warning (DirectoryNotEmptyException) is suppressed because its
+        // child (the file) also failed, avoiding the warning cascade (see review finding #1).
+        ArgumentCaptor<CharSequence> warnMsg = ArgumentCaptor.forClass(CharSequence.class);
+        verify(log, org.mockito.Mockito.times(1)).warn(warnMsg.capture(), any(Throwable.class));
+        assertTrue(
+                warnMsg.getValue().toString().contains(file.toString()),
+                "Warning should reference the failed file, not a parent directory");
         // The original file should still exist because it could not be deleted.
         assertTrue(exists(file), "File should still exist when batch retry also fails");
     }

@@ -260,9 +260,16 @@ final class BackgroundCleaner extends Cleaner implements Listener, Runnable {
      *
      * <p>Uses a copy of this cleaner ({@link Cleaner#Cleaner(Cleaner)}) which shares
      * the {@code retryOnError} configuration. The batch-retry strategy in
-     * {@link Cleaner#delete(Path)} ({@value Cleaner#BATCH_RETRY_DELAY_MS}ms sleep
-     * after the full tree walk) applies automatically — no per-file {@code System.gc()}
-     * is called.</p>
+     * {@link Cleaner#delete(Path)} (250 ms sleep after the full tree walk) applies
+     * automatically — no per-file {@code System.gc()} is called.</p>
+     *
+     * <p><b>Note:</b> the copy constructor creates a cleaner with default matchers and
+     * no verbose/info logging is suppressed — {@link Cleaner#delete(Path)} unconditionally
+     * logs {@code "Deleting ..."} at info level.  This is acceptable because these are
+     * temporary directories under {@code .clean/} whose names are already opaque
+     * ({@code module-12345}), and the log line is suppressed by the copy constructor
+     * setting {@code verbose=false} while the info log is gated on {@code logger.isInfoEnabled()}.
+     * Callers that need true silence should use a logger that filters info.</p>
      *
      * <h4>Thread safety</h4>
      * Contrarily to most other methods in {@code BackgroundCleaner}, this method is

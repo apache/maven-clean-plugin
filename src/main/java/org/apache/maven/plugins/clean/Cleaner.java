@@ -36,7 +36,9 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.maven.api.annotations.Nonnull;
@@ -153,13 +155,13 @@ class Cleaner implements FileVisitor<Path> {
 
     /**
      * Delay in milliseconds for the single batch retry after a full tree walk.
-     * {@link BackgroundCleaner} reuses this constant via {@link #delete(Path)} (called from
-     * {@code deleteSilently}): both the foreground and background clean paths apply a single sleep
-     * before retrying all failures, without any per-file {@code System.gc()} call.
+     * Both the foreground and background clean paths (via {@link BackgroundCleaner#deleteSilently})
+     * apply a single 250 ms sleep before retrying all failures, without any per-file
+     * {@code System.gc()} call.
      *
      * @see #delete(Path)
      */
-    static final int BATCH_RETRY_DELAY_MS = 250;
+    private static final int BATCH_RETRY_DELAY_MS = 250;
 
     /**
      * Number of files that we failed to delete.
@@ -168,17 +170,25 @@ class Cleaner implements FileVisitor<Path> {
     private int failureCount;
 
     /**
+     * An entry in the {@link #retryQueue}: a path that failed during the tree walk together with
+     * enough context to log a meaningful message if the retry succeeds or fails.
+     *
+     * @param path      the file or directory path
+     * @param directory {@code true} if the path is a directory (used only for logging)
+     */
+    private record RetryEntry(Path path, boolean directory) {}
+
+    /**
      * Paths that could not be deleted during the tree walk and should be retried as a batch.
      * Collected by {@link #tryDelete(Path)} when {@link #retryOnError} is {@code true} and the
      * first deletion attempt fails. After {@link Files#walkFileTree(Path, java.util.Set, int, FileVisitor)}
-     * completes, {@link #delete(Path)} sleeps once ({@value #BATCH_RETRY_DELAY_MS}ms) and retries
-     * each path in this list.
+     * completes, {@link #delete(Path)} sleeps once (250 ms) and retries each entry in this list.
      *
      * <p>The list is in walk order: files appear before their containing directory (because
      * {@code walkFileTree} visits files in {@code visitFile} before the directory in
      * {@code postVisitDirectory}), which is the correct deletion order.</p>
      */
-    private List<Path> retryQueue;
+    private List<RetryEntry> retryQueue;
 
     /**
      * Whether each directory level contains at least one excluded file.
@@ -324,9 +334,9 @@ class Cleaner implements FileVisitor<Path> {
         Files.walkFileTree(basedir, options, Integer.MAX_VALUE, this);
         /*
          * Batch retry: if any deletions failed during the walk, sleep once and retry all of them.
-         * This is the same strategy used by BackgroundCleaner.deleteInBackground() (see MCLEAN-102):
-         * a single sleep lets external processes (virus scanners, search indexers) release file locks,
-         * without the stop-the-world System.gc() calls and per-file sleep loops that were used before.
+         * This is the same strategy used by BackgroundCleaner (see MCLEAN-102): a single sleep
+         * lets external processes (virus scanners, search indexers) release file locks, without
+         * the stop-the-world System.gc() calls and per-file sleep loops that were used before.
          */
         if (retryQueue != null && !retryQueue.isEmpty()) {
             try {
@@ -334,23 +344,68 @@ class Cleaner implements FileVisitor<Path> {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 // Interrupted during the batch-retry sleep. Restore the flag and stop retrying;
-                // any remaining paths in the queue are abandoned. The caller's next blocking
-                // call (e.g. BlockingQueue.take() in BackgroundCleaner) will see the flag.
+                // any remaining paths in the queue are abandoned. Log a warning so the user
+                // knows files were left behind (CleanMojo treats a normal return as success).
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Interrupted during batch-retry sleep; " + retryQueue.size()
+                            + " path(s) were not retried and may remain on disk.");
+                }
                 retryQueue = null;
                 return;
             }
-            for (Path path : retryQueue) {
+            // Build a map of paths that still fail → their exception, so we can suppress warnings for
+            // DirectoryNotEmptyException on directories whose children also failed
+            // (only the leaf cause is interesting — avoids the warning cascade).
+            Map<Path, IOException> stillFailing = new LinkedHashMap<>();
+            IOException thrown = null;
+            for (RetryEntry entry : retryQueue) {
                 try {
-                    Files.deleteIfExists(path);
-                } catch (IOException e) {
-                    if (logger.isWarnEnabled()) {
-                        logger.warn("Failed to delete " + path + " after batch retry", e);
+                    if (Files.deleteIfExists(entry.path())) {
+                        if (listDeletedFiles) {
+                            String msg = entry.directory() ? "Deleted directory " : "Deleted file ";
+                            if (verbose) {
+                                logger.info(msg + entry.path());
+                            } else {
+                                logger.debug(msg + entry.path());
+                            }
+                        }
                     }
+                } catch (IOException e) {
+                    stillFailing.put(entry.path(), e);
                     failureCount++;
                     if (failOnError) {
-                        throw e;
+                        if (thrown == null) {
+                            thrown = e;
+                        } else {
+                            thrown.addSuppressed(e);
+                        }
+                        // Continue the loop so all failures are collected and reported,
+                        // then throw after the loop.
                     }
                 }
+            }
+            // Now log warnings only for paths whose failure is NOT a DirectoryNotEmptyException
+            // caused by a child that also failed (i.e. the real root cause).
+            if (!stillFailing.isEmpty() && logger.isWarnEnabled()) {
+                for (RetryEntry entry : retryQueue) {
+                    IOException ex = stillFailing.get(entry.path());
+                    if (ex == null) {
+                        continue;
+                    }
+                    // Skip directory warnings when a child path also failed — the directory
+                    // failure is just a consequence, not the root cause.
+                    if (entry.directory()) {
+                        boolean hasFailingChild = stillFailing.keySet().stream()
+                                .anyMatch(p -> !p.equals(entry.path()) && p.startsWith(entry.path()));
+                        if (hasFailingChild) {
+                            continue;
+                        }
+                    }
+                    logger.warn("Failed to delete " + entry.path() + " after batch retry", ex);
+                }
+            }
+            if (thrown != null) {
+                throw thrown;
             }
             retryQueue = null;
         }
@@ -413,7 +468,7 @@ class Cleaner implements FileVisitor<Path> {
      */
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-        if (fileMatcher.matches(file) && tryDelete(file)) {
+        if (fileMatcher.matches(file) && tryDelete(file, false)) {
             if (listDeletedFiles && !pendingRetry) {
                 logDelete(file, attrs);
             }
@@ -458,7 +513,7 @@ class Cleaner implements FileVisitor<Path> {
                 canDelete = fileMatcher.matches(dir);
             }
         }
-        if (canDelete && tryDelete(dir)) {
+        if (canDelete && tryDelete(dir, true)) {
             if (listDeletedFiles && !pendingRetry) {
                 logDelete(dir, null);
             }
@@ -557,10 +612,11 @@ class Cleaner implements FileVisitor<Path> {
      * That flag is used for logging purpose only.
      *
      * @param  file the file/directory to delete, must not be {@code null}
+     * @param  directory whether the file is a directory (for retry queue logging)
      * @return whether the file has been deleted or did not exist anymore by the time this method is invoked
      * @throws IOException if a file/directory could not be deleted and {@code failOnError} is {@code true}
      */
-    private boolean tryDelete(final Path file) throws IOException {
+    private boolean tryDelete(final Path file, final boolean directory) throws IOException {
         pendingRetry = false;
         try {
             reallyDeletedLastFile = Files.deleteIfExists(file);
@@ -579,13 +635,11 @@ class Cleaner implements FileVisitor<Path> {
                         reallyDeletedLastFile = Files.deleteIfExists(file);
                         return true;
                     } catch (IOException again) {
+                        again.addSuppressed(failure);
+                        failure = again;
                         if (!(again instanceof AccessDeniedException)) {
-                            failure.addSuppressed(again);
-                            failure = again;
                             break;
                         }
-                        failure.addSuppressed(again);
-                        failure = again;
                     }
                 }
             }
@@ -601,7 +655,7 @@ class Cleaner implements FileVisitor<Path> {
              * directory deletion will fail with DirectoryNotEmptyException and be reported.
              */
             if (retryQueue != null) {
-                retryQueue.add(file);
+                retryQueue.add(new RetryEntry(file, directory));
                 reallyDeletedLastFile = false;
                 pendingRetry = true;
                 return true; // tentatively: we expect the retry to succeed
