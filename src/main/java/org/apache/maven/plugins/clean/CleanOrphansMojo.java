@@ -202,8 +202,8 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
      * @return              the orphaned build directory, or {@code null}
      */
     private Path orphanBuildDir(Path child, String buildDirName) throws IOException {
+        Path sole = null;
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(child, this::isVisible)) {
-            Path sole = null;
             for (Path entry : entries) {
                 if (sole != null) {
                     // More than one visible entry — not orphaned.
@@ -211,13 +211,13 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
                 }
                 sole = entry;
             }
-            if (sole != null
-                    && Files.isDirectory(sole)
-                    && sole.getFileName().toString().equals(buildDirName)) {
-                return sole;
-            }
-            return null;
         }
+        if (sole != null
+                && Files.isDirectory(sole)
+                && sole.getFileName().toString().equals(buildDirName)) {
+            return sole;
+        }
+        return null;
     }
 
     /**
