@@ -177,8 +177,8 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
         }
         try (DirectoryStream<Path> children = Files.newDirectoryStream(basedir, Files::isDirectory)) {
             for (Path child : children) {
-                Path buildDir = child.resolve(buildDirName);
-                if (Files.isDirectory(buildDir) && isOnlyNonHiddenChild(child, buildDirName)) {
+                Path buildDir = orphanBuildDir(child, buildDirName);
+                if (buildDir != null) {
                     result.add(buildDir);
                 }
             }
@@ -189,26 +189,34 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
     }
 
     /**
-     * Returns {@code true} when the only non-hidden entry inside {@code dir} is a directory named
-     * {@code buildDirName}.
+     * Returns the build directory inside {@code child} if {@code child} is an orphaned sub-project
+     * directory, or {@code null} otherwise.
      *
-     * @param  dir          the directory to inspect
-     * @param  buildDirName the expected name of the sole non-hidden child
-     * @return              {@code true} if the heuristic matches
+     * <p>A single {@link DirectoryStream} is opened on {@code child}: if its only non-hidden entry
+     * is a directory named {@code buildDirName} then {@code child} is considered orphaned and that
+     * entry is returned; any other content (or a missing / non-directory build dir) returns
+     * {@code null}.</p>
+     *
+     * @param  child        the candidate sub-directory to inspect
+     * @param  buildDirName the name of the build output directory (e.g. {@code target})
+     * @return              the orphaned build directory, or {@code null}
      */
-    private boolean isOnlyNonHiddenChild(Path dir, String buildDirName) throws IOException {
-        try (DirectoryStream<Path> entries = Files.newDirectoryStream(dir, this::isVisible)) {
+    private Path orphanBuildDir(Path child, String buildDirName) throws IOException {
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(child, this::isVisible)) {
             Path sole = null;
             for (Path entry : entries) {
                 if (sole != null) {
                     // More than one visible entry — not orphaned.
-                    return false;
+                    return null;
                 }
                 sole = entry;
             }
-            return sole != null
+            if (sole != null
                     && Files.isDirectory(sole)
-                    && sole.getFileName().toString().equals(buildDirName);
+                    && sole.getFileName().toString().equals(buildDirName)) {
+                return sole;
+            }
+            return null;
         }
     }
 
