@@ -229,7 +229,9 @@ class CleanerTest {
                 "Warning should reference the failed file, not a parent directory");
         // The original file should still exist because it could not be deleted.
         assertTrue(exists(file), "File should still exist when batch retry also fails");
+    }
 
+    /**
      * Verifies that {@code followSymlinks=true} deletes the directory correctly when {@code toRealPath()}
      * succeeds (normal case). The fallback code path (when {@code toRealPath()} throws, as on Windows Docker
      * volume reparse points due to JDK-8172711) cannot be reproduced in standard CI and is therefore not

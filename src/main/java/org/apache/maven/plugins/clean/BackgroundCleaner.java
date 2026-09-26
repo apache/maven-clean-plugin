@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -108,6 +109,18 @@ final class BackgroundCleaner implements Listener, Runnable {
      * {@code System.gc()} + sleep that caused MCLEAN-102.
      */
     private static final int BATCH_RETRY_DELAY_MS = 250;
+
+    /**
+     * Minimum age (in milliseconds) that a staged directory must have before it is treated as a
+     * leftover from a previous build. Directories younger than this threshold are assumed to belong
+     * to a concurrent build sharing the same staging area and are therefore left untouched.
+     *
+     * <p>The default of 30 seconds is conservative: Maven initialises the {@link BackgroundCleaner}
+     * early in the session, so any directory created by the current build will be much younger than
+     * 30 seconds relative to the scan that immediately follows. A directory sitting in the staging
+     * area from a killed build will be older than 30 seconds in virtually all cases.</p>
+     */
+    static final long LEFTOVER_AGE_THRESHOLD_MS = 30_000L;
 
     /**
      * A file or directory that could not be deleted, together with the exception that caused the failure.
@@ -267,6 +280,12 @@ final class BackgroundCleaner implements Listener, Runnable {
      * present in the singleton pattern of version 3.5.0 but was lost when switching to
      * per-subproject instances.
      *
+     * <p>To guard against concurrent builds sharing the same staging directory, only directories
+     * older than {@link #LEFTOVER_AGE_THRESHOLD_MS} are treated as leftovers. A directory created
+     * by an ongoing concurrent build will be younger than this threshold and is therefore skipped,
+     * preventing a leftover scan from deleting directories that are actively being used by another
+     * build running in the same staging area at the same time.</p>
+     *
      * <p><b>Limitation:</b> leftovers are always deleted with {@code force=false}.
      * Because the previous build's configuration is not persisted, we cannot know
      * whether it used {@code force=true}. As a consequence, read-only files that
@@ -275,9 +294,25 @@ final class BackgroundCleaner implements Listener, Runnable {
      */
     private void scanForLeftovers() {
         if (Files.isDirectory(fastDir)) {
+            Instant threshold = Instant.now().minusMillis(LEFTOVER_AGE_THRESHOLD_MS);
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(fastDir)) {
                 for (Path child : stream) {
                     if (Files.isDirectory(child)) {
+                        try {
+                            Instant lastModified =
+                                    Files.getLastModifiedTime(child).toInstant();
+                            if (lastModified.isAfter(threshold)) {
+                                logger.debug("Skipping recent staged directory (may belong to a concurrent build): "
+                                        + child);
+                                continue;
+                            }
+                        } catch (IOException e) {
+                            logger.debug(
+                                    "Could not read last-modified time of staged directory " + child
+                                            + "; skipping to be safe.",
+                                    e);
+                            continue;
+                        }
                         logger.debug("Cleaning leftover directory from previous build: " + child);
                         executor.submit(() -> deleteInBackground(child, false, true));
                     }
