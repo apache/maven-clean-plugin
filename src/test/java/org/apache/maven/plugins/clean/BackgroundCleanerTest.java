@@ -413,16 +413,15 @@ class BackgroundCleanerTest {
     }
 
     // -----------------------------------------------------------------------
-    // failOnError — background path cannot structurally fail the build
+    // failOnError=false — async path logs warnings instead of throwing
     // -----------------------------------------------------------------------
 
     /**
      * Background deletion failures must be logged as warnings without throwing.
      *
-     * <p>{@code failOnError} has no effect when {@code fast=true}: a session-end listener cannot
-     * structurally fail the build — Maven catches whatever a listener throws and downgrades it to
-     * a warning. This test verifies that errors are reported as warnings and that {@code onEvent}
-     * returns normally.</p>
+     * <p>When {@code failOnError=false}, the deletion is offloaded to the background executor
+     * thread. This test verifies that errors in that path are reported as warnings and that
+     * {@code onEvent} returns normally.</p>
      */
     @Test
     @DisabledOnOs(OS.WINDOWS)

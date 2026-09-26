@@ -54,7 +54,7 @@ import org.apache.maven.api.plugin.Log;
  * <p>This class does <em>not</em> extend {@link Cleaner}. Each subproject creates its own {@link Cleaner}
  * with per-subproject configuration ({@code force}, {@code retryOnError}, etc.) and attaches this shared
  * service via {@link Cleaner#setBackgroundCleaner(BackgroundCleaner)}. The per-subproject values are
- * passed to {@link #fastDelete(Path, boolean, boolean)} and captured alongside each directory so
+ * passed to {@link #fastDelete(Path, boolean, boolean, boolean)} and captured alongside each directory so
  * that background deletion respects the configuration of the subproject that requested the deletion,
  * even in multi-subproject builds where subprojects configure the clean plugin differently.</p>
  *
