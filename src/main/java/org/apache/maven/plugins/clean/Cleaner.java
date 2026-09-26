@@ -417,8 +417,12 @@ final class Cleaner implements FileVisitor<Path> {
     /**
      * Deletes the specified directory and its contents in a background thread.
      * If a {@link BackgroundCleaner} has been {@linkplain #setBackgroundCleaner set},
-     * delegates to it with this cleaner's {@link #force}, {@link #retryOnError} and
-     * {@link #failOnError} values. Otherwise returns {@code false}.
+     * delegates to it with this cleaner's {@link #force} and {@link #retryOnError}
+     * configuration. Otherwise returns {@code false}.
+     *
+     * <p><b>Note:</b> {@code failOnError} is not passed to the background path because
+     * a session-end listener cannot structurally fail the build. See
+     * {@link BackgroundCleaner#fastDelete(Path, boolean, boolean)} for details.</p>
      *
      * @param basedir the directory to delete, must not be {@code null}
      * @return whether this method was able to register the background task
@@ -426,7 +430,7 @@ final class Cleaner implements FileVisitor<Path> {
      */
     private boolean fastDelete(Path baseDir) throws IOException {
         if (backgroundCleaner != null) {
-            return backgroundCleaner.fastDelete(baseDir, force, retryOnError, failOnError);
+            return backgroundCleaner.fastDelete(baseDir, force, retryOnError);
         }
         return false;
     }

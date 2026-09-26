@@ -195,7 +195,7 @@ class BackgroundCleanerTest {
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        assertTrue(bc.fastDelete(target, false, true, false));
+        assertTrue(bc.fastDelete(target, false, true));
 
         // After fastDelete(), target has been moved to fastDir — the staging area exists.
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
@@ -249,17 +249,14 @@ class BackgroundCleanerTest {
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // force=true, retryOnError=true — must make the directory writable to delete its contents.
-        assertTrue(bc.fastDelete(target, true, true, false));
+        assertTrue(bc.fastDelete(target, true, true));
 
-        // After fastDelete(), the tree (including the read-only directory) is in the staging area.
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
 
         Event event = mock(Event.class);
         when(event.getType()).thenReturn(EventType.SESSION_ENDED);
         captor.getValue().onEvent(event);
 
-        // After onEvent returns, the executor has been drained. The staging directory is
-        // deleted by run() when empty — proving the read-only directory was force-deleted.
         assertFalse(exists(fastDir), "staging directory must be deleted: read-only directory must be force-deleted");
     }
 
@@ -290,7 +287,7 @@ class BackgroundCleanerTest {
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        assertTrue(bc.fastDelete(target, true, true, false));
+        assertTrue(bc.fastDelete(target, true, true));
 
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
 
@@ -349,62 +346,20 @@ class BackgroundCleanerTest {
     }
 
     // -----------------------------------------------------------------------
-    // failOnError — background path must propagate errors as build failures
+    // failOnError — background path cannot structurally fail the build
     // -----------------------------------------------------------------------
 
     /**
-     * With {@code failOnError=true}, background deletion failures must cause
-     * {@link BackgroundCleaner#run()} to throw an {@link java.io.UncheckedIOException},
-     * matching the foreground {@link Cleaner}'s behavior where the build fails with exit code 1.
+     * Background deletion failures must be logged as warnings without throwing.
      *
-     * <p>This test creates a read-only directory with {@code force=false} so deletion fails,
-     * and verifies that {@code onEvent(SESSION_ENDED)} throws.</p>
+     * <p>{@code failOnError} has no effect when {@code fast=true}: a session-end listener cannot
+     * structurally fail the build — Maven catches whatever a listener throws and downgrades it to
+     * a warning. This test verifies that errors are reported as warnings and that {@code onEvent}
+     * returns normally.</p>
      */
     @Test
     @DisabledOnOs(OS.WINDOWS)
-    void failOnErrorCausesBuildFailureFromBackgroundPath(@TempDir Path tempDir) throws Exception {
-        Path fastDir = tempDir.resolve(".clean");
-        Path target = createDirectory(tempDir.resolve("target"));
-        Path subDir = createDirectory(target.resolve("subdir"));
-        createFile(subDir.resolve("file.txt"));
-        // Make the directory read-only so deletion of its children fails with AccessDeniedException.
-        Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
-
-        Log log = mock(Log.class);
-        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
-        Session session = mockSession(captor);
-
-        BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        // force=false, retryOnError=false, failOnError=true — deletion will fail and must propagate.
-        assertTrue(bc.fastDelete(target, false, false, true));
-
-        Event event = mock(Event.class);
-        when(event.getType()).thenReturn(EventType.SESSION_ENDED);
-
-        try {
-            captor.getValue().onEvent(event);
-            // If we get here, the test fails — an exception should have been thrown.
-            org.junit.jupiter.api.Assertions.fail(
-                    "Expected UncheckedIOException from onEvent when failOnError=true and deletion fails");
-        } catch (java.io.UncheckedIOException expected) {
-            // Verify the exception carries meaningful information.
-            assertTrue(
-                    expected.getMessage().contains("Failed to clean project"),
-                    "Exception message should indicate a build failure: " + expected.getMessage());
-        } finally {
-            // Restore permissions on any surviving read-only directories (moved to staging area)
-            // so that @TempDir cleanup succeeds.
-            makeWritableRecursively(tempDir);
-        }
-    }
-
-    /**
-     * With {@code failOnError=false}, background deletion failures must be logged as warnings
-     * without throwing, matching the foreground {@link Cleaner}'s behavior.
-     */
-    @Test
-    @DisabledOnOs(OS.WINDOWS)
-    void failOnErrorFalseDoesNotThrowFromBackgroundPath(@TempDir Path tempDir) throws Exception {
+    void backgroundDeletionFailuresAreLoggedAsWarnings(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
         Path target = createDirectory(tempDir.resolve("target"));
         Path subDir = createDirectory(target.resolve("subdir"));
@@ -416,16 +371,16 @@ class BackgroundCleanerTest {
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        // force=false, retryOnError=false, failOnError=false — must NOT throw.
-        assertTrue(bc.fastDelete(target, false, false, false));
+        // force=false, retryOnError=false — deletion will fail and must be logged as a warning.
+        assertTrue(bc.fastDelete(target, false, false));
 
         Event event = mock(Event.class);
         when(event.getType()).thenReturn(EventType.SESSION_ENDED);
 
         try {
-            // Must not throw.
+            // Must not throw — errors are logged as warnings, not propagated.
             captor.getValue().onEvent(event);
-            // Verify a warning was logged instead.
+            // Verify a warning was logged.
             verify(log, atLeastOnce()).warn(any(CharSequence.class), any(Throwable.class));
         } finally {
             makeWritableRecursively(tempDir);
