@@ -23,6 +23,8 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.maven.api.plugin.Log;
 import org.apache.maven.api.services.PathMatcherFactory;
@@ -133,5 +135,98 @@ class CleanerTest {
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, false);
         assertDoesNotThrow(() -> cleaner.delete(basedir));
         verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
+    }
+
+    /**
+     * Verifies the batch retry strategy: a file that fails during the tree walk but becomes
+     * deletable before the batch retry completes is deleted without any error being reported.
+     *
+     * <p>This test simulates the Windows scenario where a file is temporarily locked by an
+     * external process (virus scanner, search indexer): the directory is made non-writable during
+     * the walk, then a background thread restores write permission during the batch-retry sleep,
+     * allowing the retry to succeed.
+     * No {@code System.gc()} is called between attempts — that was the anti-pattern removed by
+     * this fix (see issue #281).</p>
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void batchRetrySucceedsWhenFileBecomesAvailableDuringDelay(@TempDir Path tempDir) throws Exception {
+        when(log.isWarnEnabled()).thenReturn(true);
+        final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
+        final Path file = createFile(basedir.resolve("file"));
+
+        // Make the directory non-writable so the first deletion attempt on the file fails.
+        final Set<PosixFilePermission> noWrite = PosixFilePermissions.fromString("r-xr-xr-x");
+        final Set<PosixFilePermission> writable = PosixFilePermissions.fromString("rwxrwxr-x");
+        setPosixFilePermissions(basedir, noWrite);
+
+        // Schedule a background thread to restore write permission during the batch-retry sleep.
+        // The batch sleep is 250ms; we restore after 50ms to give plenty of margin.
+        final CountDownLatch walkStarted = new CountDownLatch(1);
+        Thread restorer = new Thread(() -> {
+            try {
+                walkStarted.await(5, TimeUnit.SECONDS);
+                Thread.sleep(50);
+                setPosixFilePermissions(basedir, writable);
+            } catch (Exception ignored) {
+            }
+        });
+        restorer.setDaemon(true);
+        restorer.start();
+
+        // Signal the restorer thread immediately before starting the delete.
+        walkStarted.countDown();
+
+        // With retryOnError=true, the cleaner should collect the failure and retry after the batch sleep.
+        final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, true);
+        long start = System.nanoTime();
+        assertDoesNotThrow(() -> cleaner.delete(basedir));
+        long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+        // The retry should have succeeded: no warning logged, files gone.
+        verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
+        assertFalse(exists(file), "File should have been deleted by the batch retry");
+        assertFalse(exists(basedir), "Base directory should have been deleted by the batch retry");
+
+        // Verify the batch-retry sleep actually ran (at least 200ms to avoid flakiness from scheduling jitter).
+        assertTrue(
+                elapsed >= 200,
+                "Expected batch retry delay of ~250ms but only " + elapsed + "ms elapsed; "
+                        + "the batch retry may not have triggered");
+
+        restorer.join(2000);
+    }
+
+    /**
+     * Verifies that when {@code retryOnError=true} and a file cannot be deleted even after the
+     * batch retry, a warning is logged (once, after the retry — not during the walk).
+     * The batch retry delay (250 ms) is the only sleep;
+     * there is no per-file sleep and no {@code System.gc()} call.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void batchRetryLogsWarningAfterRetryWhenStillFailing(@TempDir Path tempDir) throws Exception {
+        when(log.isWarnEnabled()).thenReturn(true);
+        final Path basedir = createDirectory(tempDir.resolve("target")).toRealPath();
+        final Path file = createFile(basedir.resolve("file"));
+
+        // Make the directory non-writable throughout — the retry will also fail.
+        final Set<PosixFilePermission> noWrite = PosixFilePermissions.fromString("r-xr-xr-x");
+        setPosixFilePermissions(basedir, noWrite);
+
+        // retryOnError=true, failOnError=false: should not throw but should warn after retry.
+        final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, true);
+        assertDoesNotThrow(() -> cleaner.delete(basedir));
+
+        // Only one warning should be logged — for the file that could not be deleted.
+        // The directory warning (DirectoryNotEmptyException) is suppressed because its
+        // child (the file) also failed, avoiding the warning cascade (see review finding #1).
+        ArgumentCaptor<CharSequence> warnMsg = ArgumentCaptor.forClass(CharSequence.class);
+        verify(log, org.mockito.Mockito.times(1)).warn(warnMsg.capture(), any(Throwable.class));
+        assertTrue(
+                warnMsg.getValue().toString().contains(file.toString()),
+                "Warning should reference the failed file, not a parent directory");
+        // The original file should still exist because it could not be deleted.
+        assertTrue(exists(file), "File should still exist when batch retry also fails");
     }
 }

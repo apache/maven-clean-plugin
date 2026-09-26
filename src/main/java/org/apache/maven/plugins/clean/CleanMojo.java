@@ -149,6 +149,11 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     /**
      * Indicates whether the build will continue even if there are clean errors.
      *
+     * <p><b>Note:</b> when {@link #fast} is {@code true}, this parameter has no effect on the
+     * background deletion path. A session-end listener cannot structurally fail the build in
+     * Maven, so errors from background deletions are always logged as warnings regardless of
+     * this setting. Use {@code fast=false} if you need the build to fail on clean errors.</p>
+     *
      * @since 2.2
      */
     @Parameter(property = "maven.clean.failOnError", defaultValue = "true")
@@ -186,6 +191,11 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * <p>Note that for small projects with few files to delete, the "fast" clean tends to be actually slower.
      * It is also more at risk that errors occurring during the deletion of a file get unnoticed, or are noticed
      * late in the build process. This option should be used only when it has been verified to be worth.</p>
+     *
+     * <p><b>Note:</b> {@link #failOnError} has no effect when fast clean is enabled. Background deletions
+     * run from a session-end listener, which cannot structurally fail the build — Maven catches whatever
+     * a listener throws and downgrades it to a warning. Errors from background deletions are always
+     * logged as warnings.</p>
      *
      * @since 3.2
      */
@@ -261,26 +271,15 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
             logger.info("Clean is skipped.");
             return;
         }
-        Cleaner cleaner;
+        Cleaner cleaner =
+                new Cleaner(matcherFactory, logger, isVerbose(), followSymLinks, force, failOnError, retryOnError);
         if (fast && session != null) {
             Path tmpDir = fastDir;
             if (tmpDir == null) {
                 tmpDir = session.getRootDirectory().resolve("target").resolve(".clean");
             }
-            cleaner = new BackgroundCleaner(
-                    session,
-                    matcherFactory,
-                    logger,
-                    isVerbose(),
-                    tmpDir,
-                    FastMode.caseInsensitiveValueOf(fastMode),
-                    followSymLinks,
-                    force,
-                    failOnError,
-                    retryOnError);
-        } else {
-            cleaner =
-                    new Cleaner(matcherFactory, logger, isVerbose(), followSymLinks, force, failOnError, retryOnError);
+            cleaner.setBackgroundCleaner(
+                    BackgroundCleaner.getOrCreate(session, logger, tmpDir, FastMode.caseInsensitiveValueOf(fastMode)));
         }
         try {
             for (Path directoryItem : getDirectories()) {
