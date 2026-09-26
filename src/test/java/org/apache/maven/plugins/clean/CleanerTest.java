@@ -38,6 +38,7 @@ import org.mockito.InOrder;
 
 import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createFile;
+import static java.nio.file.Files.createSymbolicLink;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.setPosixFilePermissions;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -228,5 +229,23 @@ class CleanerTest {
                 "Warning should reference the failed file, not a parent directory");
         // The original file should still exist because it could not be deleted.
         assertTrue(exists(file), "File should still exist when batch retry also fails");
+
+     * Verifies that {@code followSymlinks=true} deletes the directory correctly when {@code toRealPath()}
+     * succeeds (normal case). The fallback code path (when {@code toRealPath()} throws, as on Windows Docker
+     * volume reparse points due to JDK-8172711) cannot be reproduced in standard CI and is therefore not
+     * covered by an automated test.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void deleteWithFollowSymlinksDeletesTarget(@TempDir Path tempDir) throws Exception {
+        final Path target = createDirectory(tempDir.resolve("target")).toRealPath();
+        createFile(target.resolve("file"));
+        final Path link = createSymbolicLink(tempDir.resolve("link"), target);
+        // followSymlinks=true triggers the getCanonicalPath() call (and the new try/catch)
+        final var cleaner = new Cleaner(matcherFactory, log, false, true, false, true, false);
+        cleaner.delete(link);
+        assertFalse(exists(target));
+        verify(log, never()).debug(any(CharSequence.class));
+        verify(log, never()).debug(any(CharSequence.class), any(Throwable.class));
     }
 }
