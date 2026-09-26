@@ -602,7 +602,7 @@ class Cleaner implements FileVisitor<Path> {
      * (this is a permissions fix, not a timing retry).
      * For all other transient failures (e.g. Windows file locks held by virus scanners),
      * the path is added to {@link #retryQueue} and the batch retry in {@link #delete(Path)}
-     * will retry it after a single {@value #BATCH_RETRY_DELAY_MS}ms sleep — without calling
+     * will retry it after a single 250 ms sleep — without calling
      * {@code System.gc()} or sleeping per file.
      *
      * <h4>Auxiliary information as side-effect</h4>
