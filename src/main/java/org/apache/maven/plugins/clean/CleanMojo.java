@@ -149,10 +149,10 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     /**
      * Indicates whether the build will continue even if there are clean errors.
      *
-     * <p><b>Note:</b> when {@link #fast} is {@code true}, this parameter has no effect on the
-     * background deletion path. A session-end listener cannot structurally fail the build in
-     * Maven, so errors from background deletions are always logged as warnings regardless of
-     * this setting. Use {@code fast=false} if you need the build to fail on clean errors.</p>
+     * <p>When {@link #fast} is {@code true} and this parameter is {@code true} (the default),
+     * the deletion of each directory runs synchronously so that any error can fail the build
+     * immediately. When {@code failOnError} is {@code false}, fast clean operates fully
+     * asynchronously and errors are logged as warnings at session end.</p>
      *
      * @since 2.2
      */
@@ -192,10 +192,9 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * It is also more at risk that errors occurring during the deletion of a file get unnoticed, or are noticed
      * late in the build process. This option should be used only when it has been verified to be worth.</p>
      *
-     * <p><b>Note:</b> {@link #failOnError} has no effect when fast clean is enabled. Background deletions
-     * run from a session-end listener, which cannot structurally fail the build — Maven catches whatever
-     * a listener throws and downgrades it to a warning. Errors from background deletions are always
-     * logged as warnings.</p>
+     * <p>When {@link #failOnError} is {@code true} (the default), each directory deletion runs synchronously
+     * so that errors fail the build immediately. Set {@code failOnError=false} to enable fully asynchronous
+     * deletion with errors reported only as warnings at session end.</p>
      *
      * @since 3.2
      */

@@ -195,7 +195,7 @@ class BackgroundCleanerTest {
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        assertTrue(bc.fastDelete(target, false, true));
+        assertTrue(bc.fastDelete(target, false, true, false));
 
         // After fastDelete(), target has been moved to fastDir — the staging area exists.
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
@@ -249,7 +249,7 @@ class BackgroundCleanerTest {
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // force=true, retryOnError=true — must make the directory writable to delete its contents.
-        assertTrue(bc.fastDelete(target, true, true));
+        assertTrue(bc.fastDelete(target, true, true, false));
 
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
 
@@ -287,7 +287,7 @@ class BackgroundCleanerTest {
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        assertTrue(bc.fastDelete(target, true, true));
+        assertTrue(bc.fastDelete(target, true, true, false));
 
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
 
@@ -346,6 +346,73 @@ class BackgroundCleanerTest {
     }
 
     // -----------------------------------------------------------------------
+    // failOnError=true — synchronous deletion that fails the build
+    // -----------------------------------------------------------------------
+
+    /**
+     * When {@code failOnError=true} and the deletion fails, {@link BackgroundCleaner#fastDelete}
+     * must throw an {@link IOException} synchronously so that the build can be failed.
+     * This verifies that {@code failOnError} now works correctly in fast mode (fixes #352).
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void failOnErrorThrowsWhenDeletionFails(@TempDir Path tempDir) throws Exception {
+        Path fastDir = tempDir.resolve(".clean");
+        Path target = createDirectory(tempDir.resolve("target"));
+        Path subDir = createDirectory(target.resolve("subdir"));
+        createFile(subDir.resolve("file.txt"));
+        // Make the directory read-only so deletion of its contents fails (force=false).
+        Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
+
+        Log log = mock(Log.class);
+        Session session = mockSession(null);
+
+        BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
+        try {
+            // failOnError=true must cause fastDelete to throw synchronously.
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IOException.class,
+                    () -> bc.fastDelete(target, false, false, true),
+                    "fastDelete with failOnError=true must throw when deletion fails");
+        } finally {
+            makeWritableRecursively(tempDir);
+        }
+    }
+
+    /**
+     * When {@code failOnError=false} and the deletion fails, {@link BackgroundCleaner#fastDelete}
+     * must return normally (error is logged as a warning at session end, not propagated).
+     * This is the existing behaviour for the asynchronous path.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void failOnErrorFalseDoesNotThrowWhenDeletionFails(@TempDir Path tempDir) throws Exception {
+        Path fastDir = tempDir.resolve(".clean");
+        Path target = createDirectory(tempDir.resolve("target"));
+        Path subDir = createDirectory(target.resolve("subdir"));
+        createFile(subDir.resolve("file.txt"));
+        Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
+
+        Log log = mock(Log.class);
+        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
+        Session session = mockSession(captor);
+
+        BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
+        try {
+            // failOnError=false: fastDelete must not throw; error is reported as a warning.
+            bc.fastDelete(target, false, false, false);
+
+            Event event = mock(Event.class);
+            when(event.getType()).thenReturn(EventType.SESSION_ENDED);
+            // Must not throw; error is logged as a warning.
+            captor.getValue().onEvent(event);
+            verify(log, atLeastOnce()).warn(any(CharSequence.class), any(Throwable.class));
+        } finally {
+            makeWritableRecursively(tempDir);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // failOnError — background path cannot structurally fail the build
     // -----------------------------------------------------------------------
 
@@ -372,7 +439,7 @@ class BackgroundCleanerTest {
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // force=false, retryOnError=false — deletion will fail and must be logged as a warning.
-        assertTrue(bc.fastDelete(target, false, false));
+        assertTrue(bc.fastDelete(target, false, false, false));
 
         Event event = mock(Event.class);
         when(event.getType()).thenReturn(EventType.SESSION_ENDED);

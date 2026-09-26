@@ -426,22 +426,25 @@ final class Cleaner implements FileVisitor<Path> {
     }
 
     /**
-     * Deletes the specified directory and its contents in a background thread.
+     * Deletes the specified directory and its contents in a background thread,
+     * or synchronously when {@code failOnError} is {@code true}.
      * If a {@link BackgroundCleaner} has been {@linkplain #setBackgroundCleaner set},
-     * delegates to it with this cleaner's {@link #force} and {@link #retryOnError}
-     * configuration. Otherwise returns {@code false}.
+     * delegates to it with this cleaner's {@link #force}, {@link #retryOnError} and
+     * {@link #failOnError} configuration. Otherwise returns {@code false}.
      *
-     * <p><b>Note:</b> {@code failOnError} is not passed to the background path because
-     * a session-end listener cannot structurally fail the build. See
-     * {@link BackgroundCleaner#fastDelete(Path, boolean, boolean)} for details.</p>
+     * <p>When {@code failOnError} is {@code true}, the deletion runs synchronously and any
+     * failure is thrown immediately so the build fails. When {@code failOnError} is
+     * {@code false}, deletion is offloaded to the background thread and errors are
+     * logged as warnings at session end.</p>
      *
      * @param basedir the directory to delete, must not be {@code null}
      * @return whether this method was able to register the background task
-     * @throws IOException if an error occurred while preparing the task before execution in a background thread
+     * @throws IOException if an error occurred while preparing the task before execution in a background thread,
+     *                     or if {@code failOnError} is {@code true} and the deletion failed
      */
     private boolean fastDelete(Path baseDir) throws IOException {
         if (backgroundCleaner != null) {
-            return backgroundCleaner.fastDelete(baseDir, force, retryOnError);
+            return backgroundCleaner.fastDelete(baseDir, force, retryOnError, failOnError);
         }
         return false;
     }
