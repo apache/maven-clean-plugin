@@ -47,7 +47,9 @@ import org.apache.maven.api.services.PathMatcherFactory;
  * considered orphaned when its <em>only non-hidden child</em> is the build output directory
  * (typically {@code target/}). A freshly checked-out or live sub-project always has at least a
  * {@code pom.xml} alongside its build directory, so a directory whose sole visible content is a
- * {@code target/} folder can safely be assumed to be a leftover.</p>
+ * {@code target/} folder can safely be assumed to be a leftover. The entire child directory
+ * (not just its build output subdirectory) is removed, since an orphaned directory with no
+ * source files has no reason to remain on disk.</p>
  *
  * @since 3.5.1
  */
@@ -152,7 +154,7 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
         Cleaner cleaner = new Cleaner(matcherFactory, logger, isVerbose(), false, force, failOnError, retryOnError);
         try {
             for (Path orphan : orphans) {
-                logger.info("Removing orphaned build directory: " + orphan);
+                logger.info("Removing orphaned directory: " + orphan);
                 cleaner.delete(orphan);
             }
         } catch (IOException e) {
@@ -161,14 +163,15 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
     }
 
     /**
-     * Returns the list of orphaned build directories found as direct children of {@code basedir}.
+     * Returns the list of orphaned child directories found as direct children of {@code basedir}.
      *
      * <p>A direct child directory is considered orphaned when its only non-hidden child entry is a
-     * directory whose name matches {@code buildDirName}.</p>
+     * directory whose name matches {@code buildDirName}. The entire child directory is returned
+     * (not just the build subdirectory inside it).</p>
      *
      * @param  basedir      the directory to scan
      * @param  buildDirName the name of the build output directory (e.g. {@code target})
-     * @return              a possibly-empty list of build directories to delete
+     * @return              a possibly-empty list of orphaned child directories to delete
      */
     private List<Path> findOrphanBuildDirectories(Path basedir, String buildDirName) {
         List<Path> result = new ArrayList<>();
@@ -177,9 +180,8 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
         }
         try (DirectoryStream<Path> children = Files.newDirectoryStream(basedir, Files::isDirectory)) {
             for (Path child : children) {
-                Path buildDir = orphanBuildDir(child, buildDirName);
-                if (buildDir != null) {
-                    result.add(buildDir);
+                if (isOrphanDirectory(child, buildDirName)) {
+                    result.add(child);
                 }
             }
         } catch (IOException e) {
@@ -189,35 +191,29 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
     }
 
     /**
-     * Returns the build directory inside {@code child} if {@code child} is an orphaned sub-project
-     * directory, or {@code null} otherwise.
+     * Returns {@code true} if {@code child} is an orphaned sub-project directory.
      *
      * <p>A single {@link DirectoryStream} is opened on {@code child}: if its only non-hidden entry
-     * is a directory named {@code buildDirName} then {@code child} is considered orphaned and that
-     * entry is returned; any other content (or a missing / non-directory build dir) returns
-     * {@code null}.</p>
+     * is a directory named {@code buildDirName} then {@code child} is considered orphaned.</p>
      *
      * @param  child        the candidate sub-directory to inspect
      * @param  buildDirName the name of the build output directory (e.g. {@code target})
-     * @return              the orphaned build directory, or {@code null}
+     * @return              {@code true} if {@code child} is an orphaned directory
      */
-    private Path orphanBuildDir(Path child, String buildDirName) throws IOException {
+    private boolean isOrphanDirectory(Path child, String buildDirName) throws IOException {
         Path sole = null;
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(child, this::isVisible)) {
             for (Path entry : entries) {
                 if (sole != null) {
                     // More than one visible entry — not orphaned.
-                    return null;
+                    return false;
                 }
                 sole = entry;
             }
         }
-        if (sole != null
+        return sole != null
                 && Files.isDirectory(sole)
-                && sole.getFileName().toString().equals(buildDirName)) {
-            return sole;
-        }
-        return null;
+                && sole.getFileName().toString().equals(buildDirName);
     }
 
     /**
