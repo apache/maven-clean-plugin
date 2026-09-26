@@ -24,4 +24,7 @@ if ( new File( basedir, "target" ).exists() )
 }
 
 File buildLog = new File(basedir, 'build.log')
-return buildLog.text.contains('mvn-background-cleaner')
+// With failOnError=true (the default), deletion runs synchronously — the
+// background cleaner thread name won't appear.  Verify that the fast-delete
+// path was used by checking for the staging-directory debug message.
+return buildLog.text.contains('Deleting') && buildLog.text.contains('in background')
