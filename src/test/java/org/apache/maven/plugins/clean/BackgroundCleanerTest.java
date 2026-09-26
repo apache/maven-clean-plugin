@@ -24,7 +24,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -311,9 +313,11 @@ class BackgroundCleanerTest {
     @Test
     void scanForLeftoversDeletesOrphanedDirectories(@TempDir Path tempDir) throws Exception {
         Path fastDir = createDirectory(tempDir.resolve(".clean"));
-        // Simulate a leftover from a previous build.
+        // Simulate a leftover from a previous build — old enough to pass the age filter.
         Path leftover = createDirectory(fastDir.resolve("module-1234567890"));
         createFile(leftover.resolve("stale.class"));
+        Instant oldTime = Instant.now().minusMillis(BackgroundCleaner.LEFTOVER_AGE_THRESHOLD_MS + 60_000L);
+        Files.setLastModifiedTime(leftover, FileTime.from(oldTime));
 
         Log log = mock(Log.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
@@ -343,6 +347,62 @@ class BackgroundCleanerTest {
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // Can still be used normally afterwards.
         assertNotNull(bc);
+    }
+
+    /**
+     * A staged directory that was created recently (younger than {@link BackgroundCleaner#LEFTOVER_AGE_THRESHOLD_MS})
+     * must NOT be deleted by {@code scanForLeftovers}: it may belong to a concurrent build sharing
+     * the same staging directory.
+     */
+    @Test
+    void scanForLeftoversSkipsRecentDirectories(@TempDir Path tempDir) throws Exception {
+        Path fastDir = createDirectory(tempDir.resolve(".clean"));
+        // Create a directory with a last-modified time set to NOW (very recent).
+        Path recent = createDirectory(fastDir.resolve("module-recent-9999999"));
+        createFile(recent.resolve("output.class"));
+        // last-modified is already "now" from createDirectory; no need to set it explicitly.
+
+        Log log = mock(Log.class);
+        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
+        Session session = mockSession(captor);
+
+        // Construction triggers scanForLeftovers — the recent directory must be skipped.
+        BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
+
+        Event event = mock(Event.class);
+        when(event.getType()).thenReturn(EventType.SESSION_ENDED);
+        captor.getValue().onEvent(event);
+
+        // The recent directory must still exist: it was skipped by the age filter.
+        assertTrue(exists(recent), "recent staged directory must NOT be deleted by leftover scan");
+    }
+
+    /**
+     * A staged directory that is older than {@link BackgroundCleaner#LEFTOVER_AGE_THRESHOLD_MS}
+     * must be treated as a leftover from a killed previous build and queued for deletion.
+     */
+    @Test
+    void scanForLeftoversDeletesOldDirectories(@TempDir Path tempDir) throws Exception {
+        Path fastDir = createDirectory(tempDir.resolve(".clean"));
+        // Simulate a leftover with a last-modified time well past the threshold.
+        Path old = createDirectory(fastDir.resolve("module-old-1234567890"));
+        createFile(old.resolve("stale.class"));
+        Instant oldTime = Instant.now().minusMillis(BackgroundCleaner.LEFTOVER_AGE_THRESHOLD_MS + 60_000L);
+        Files.setLastModifiedTime(old, FileTime.from(oldTime));
+
+        Log log = mock(Log.class);
+        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
+        Session session = mockSession(captor);
+
+        // Construction triggers scanForLeftovers — the old directory must be queued.
+        BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
+
+        Event event = mock(Event.class);
+        when(event.getType()).thenReturn(EventType.SESSION_ENDED);
+        captor.getValue().onEvent(event);
+
+        // The old directory must have been deleted.
+        assertFalse(exists(old), "old leftover directory must be deleted by leftover scan");
     }
 
     // -----------------------------------------------------------------------
