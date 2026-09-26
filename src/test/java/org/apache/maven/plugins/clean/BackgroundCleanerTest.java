@@ -19,8 +19,11 @@
 package org.apache.maven.plugins.clean;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.HashMap;
 import java.util.Map;
@@ -192,7 +195,7 @@ class BackgroundCleanerTest {
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        assertTrue(bc.fastDelete(target, false, true));
+        assertTrue(bc.fastDelete(target, false, true, false));
 
         // After fastDelete(), target has been moved to fastDir — the staging area exists.
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
@@ -246,7 +249,7 @@ class BackgroundCleanerTest {
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // force=true, retryOnError=true — must make the directory writable to delete its contents.
-        assertTrue(bc.fastDelete(target, true, true));
+        assertTrue(bc.fastDelete(target, true, true, false));
 
         // After fastDelete(), the tree (including the read-only directory) is in the staging area.
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
@@ -287,7 +290,7 @@ class BackgroundCleanerTest {
         Session session = mockSession(captor);
 
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
-        assertTrue(bc.fastDelete(target, true, true));
+        assertTrue(bc.fastDelete(target, true, true, false));
 
         assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
 
@@ -343,5 +346,118 @@ class BackgroundCleanerTest {
         BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // Can still be used normally afterwards.
         assertNotNull(bc);
+    }
+
+    // -----------------------------------------------------------------------
+    // failOnError — background path must propagate errors as build failures
+    // -----------------------------------------------------------------------
+
+    /**
+     * With {@code failOnError=true}, background deletion failures must cause
+     * {@link BackgroundCleaner#run()} to throw an {@link java.io.UncheckedIOException},
+     * matching the foreground {@link Cleaner}'s behavior where the build fails with exit code 1.
+     *
+     * <p>This test creates a read-only directory with {@code force=false} so deletion fails,
+     * and verifies that {@code onEvent(SESSION_ENDED)} throws.</p>
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void failOnErrorCausesBuildFailureFromBackgroundPath(@TempDir Path tempDir) throws Exception {
+        Path fastDir = tempDir.resolve(".clean");
+        Path target = createDirectory(tempDir.resolve("target"));
+        Path subDir = createDirectory(target.resolve("subdir"));
+        createFile(subDir.resolve("file.txt"));
+        // Make the directory read-only so deletion of its children fails with AccessDeniedException.
+        Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
+
+        Log log = mock(Log.class);
+        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
+        Session session = mockSession(captor);
+
+        BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
+        // force=false, retryOnError=false, failOnError=true — deletion will fail and must propagate.
+        assertTrue(bc.fastDelete(target, false, false, true));
+
+        Event event = mock(Event.class);
+        when(event.getType()).thenReturn(EventType.SESSION_ENDED);
+
+        try {
+            captor.getValue().onEvent(event);
+            // If we get here, the test fails — an exception should have been thrown.
+            org.junit.jupiter.api.Assertions.fail(
+                    "Expected UncheckedIOException from onEvent when failOnError=true and deletion fails");
+        } catch (java.io.UncheckedIOException expected) {
+            // Verify the exception carries meaningful information.
+            assertTrue(
+                    expected.getMessage().contains("Failed to clean project"),
+                    "Exception message should indicate a build failure: " + expected.getMessage());
+        } finally {
+            // Restore permissions on any surviving read-only directories (moved to staging area)
+            // so that @TempDir cleanup succeeds.
+            makeWritableRecursively(tempDir);
+        }
+    }
+
+    /**
+     * With {@code failOnError=false}, background deletion failures must be logged as warnings
+     * without throwing, matching the foreground {@link Cleaner}'s behavior.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void failOnErrorFalseDoesNotThrowFromBackgroundPath(@TempDir Path tempDir) throws Exception {
+        Path fastDir = tempDir.resolve(".clean");
+        Path target = createDirectory(tempDir.resolve("target"));
+        Path subDir = createDirectory(target.resolve("subdir"));
+        createFile(subDir.resolve("file.txt"));
+        Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
+
+        Log log = mock(Log.class);
+        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
+        Session session = mockSession(captor);
+
+        BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
+        // force=false, retryOnError=false, failOnError=false — must NOT throw.
+        assertTrue(bc.fastDelete(target, false, false, false));
+
+        Event event = mock(Event.class);
+        when(event.getType()).thenReturn(EventType.SESSION_ENDED);
+
+        try {
+            // Must not throw.
+            captor.getValue().onEvent(event);
+            // Verify a warning was logged instead.
+            verify(log, atLeastOnce()).warn(any(CharSequence.class), any(Throwable.class));
+        } finally {
+            makeWritableRecursively(tempDir);
+        }
+    }
+
+    /**
+     * Recursively makes all files and directories under {@code root} writable,
+     * so that {@code @TempDir} cleanup can delete them even after tests that
+     * intentionally set read-only permissions.
+     */
+    private static void makeWritableRecursively(Path root) throws IOException {
+        if (!Files.exists(root)) {
+            return;
+        }
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxr-xr-x"));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-r--r--"));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 }

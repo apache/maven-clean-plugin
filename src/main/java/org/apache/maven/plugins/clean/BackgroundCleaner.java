@@ -20,6 +20,7 @@ package org.apache.maven.plugins.clean;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.DirectoryStream;
@@ -110,11 +111,24 @@ final class BackgroundCleaner implements Listener, Runnable {
     private static final int BATCH_RETRY_DELAY_MS = 250;
 
     /**
-     * A directory queued for deferred deletion (when {@link FastMode#AT_END} or {@link FastMode#DEFER}).
-     * Captures the per-subproject {@code force} and {@code retryOnError} values at submission time
-     * so that background deletion respects the originating subproject's configuration.
+     * A file or directory that could not be deleted, together with the exception that caused the failure.
+     * Carrying the cause (instead of a bare {@code Path}) lets {@link #buildFailureException} report
+     * *why* each path failed — e.g. {@link AccessDeniedException} vs {@link java.nio.file.DirectoryNotEmptyException}
+     * vs a Windows file lock — which is the information the user needs to decide what to do about it.
+     *
+     * @param path  the file or directory that could not be deleted
+     * @param cause the exception thrown by the deletion attempt
+     * @param depth the depth relative to the staged root at the time of failure, so that
+     *              batch retry can pass the correct depth to {@link Cleaner#setWritable}
      */
-    private record DeferredDeletion(Path dir, boolean force, boolean retryOnError) {}
+    private record Failure(Path path, IOException cause, int depth) {}
+
+    /**
+     * A directory queued for deferred deletion (when {@link FastMode#AT_END} or {@link FastMode#DEFER}).
+     * Captures the per-subproject {@code force}, {@code retryOnError} and {@code failOnError} values
+     * at submission time so that background deletion respects the originating subproject's configuration.
+     */
+    private record DeferredDeletion(Path dir, boolean force, boolean retryOnError, boolean failOnError) {}
 
     /**
      * The maven session.
@@ -169,6 +183,16 @@ final class BackgroundCleaner implements Listener, Runnable {
      * Errors that occurred during the deletion.
      */
     private IOException errors;
+
+    /**
+     * Fatal errors — errors from deletions where {@code failOnError=true}. These are stored
+     * separately from {@link #errors} and cause the build to fail (via {@link UncheckedIOException})
+     * when {@link #run()} is called at session end. Without this, {@code failOnError=true} would
+     * be silently ignored for the background path: the foreground {@link Cleaner} throws from
+     * {@link Cleaner#delete(Path)} when deletion fails with {@code failOnError=true}, but the
+     * background path only logs a warning — the build exits with code 0.
+     */
+    private IOException fatalErrors;
 
     /**
      * Whether to disable the deletion of files in background threads.
@@ -266,7 +290,7 @@ final class BackgroundCleaner implements Listener, Runnable {
                 for (Path child : stream) {
                     if (Files.isDirectory(child)) {
                         logger.debug("Cleaning leftover directory from previous build: " + child);
-                        executor.submit(() -> deleteInBackground(child, false, true));
+                        executor.submit(() -> deleteInBackground(child, false, true, false));
                     }
                 }
             } catch (IOException e) {
@@ -296,10 +320,12 @@ final class BackgroundCleaner implements Listener, Runnable {
      * @param baseDir       the directory to delete, must not be {@code null}
      * @param force         whether to force the deletion of read-only files
      * @param retryOnError  whether to undertake a batch retry of failed deletions
+     * @param failOnError   whether errors should cause a build failure (propagated at session end)
      * @return whether this method was able to register the background task
      * @throws IOException if an error occurred while preparing the task before execution in a background thread
      */
-    synchronized boolean fastDelete(Path baseDir, boolean force, boolean retryOnError) throws IOException {
+    synchronized boolean fastDelete(Path baseDir, boolean force, boolean retryOnError, boolean failOnError)
+            throws IOException {
         if (disabled) {
             return false;
         }
@@ -366,9 +392,9 @@ final class BackgroundCleaner implements Listener, Runnable {
         try {
             final Path dir = Files.move(baseDir, tmpDir, StandardCopyOption.REPLACE_EXISTING);
             if (filesToDeleteAtEnd != null) {
-                filesToDeleteAtEnd.add(new DeferredDeletion(dir, force, retryOnError));
+                filesToDeleteAtEnd.add(new DeferredDeletion(dir, force, retryOnError, failOnError));
             } else {
-                executor.submit(() -> deleteInBackground(dir, force, retryOnError));
+                executor.submit(() -> deleteInBackground(dir, force, retryOnError, failOnError));
             }
         } catch (IOException | RuntimeException e) {
             try {
@@ -401,16 +427,17 @@ final class BackgroundCleaner implements Listener, Runnable {
      *
      * <h4>Thread safety</h4>
      * This method is designed to run in the background executor thread. It does not share
-     * any mutable state with the main thread except through {@link #errorOccurred(IOException)},
+     * any mutable state with the main thread except through {@link #errorOccurred(IOException, boolean)},
      * which is synchronized.
      *
      * @param dir          the directory to delete
      * @param force        whether to force the deletion of read-only files
      * @param retryOnError whether to undertake a batch retry of failed deletions
+     * @param failOnError  whether errors should cause a build failure (propagated at session end)
      */
-    private void deleteInBackground(Path dir, boolean force, boolean retryOnError) {
+    private void deleteInBackground(Path dir, boolean force, boolean retryOnError, boolean failOnError) {
         logger.debug("Deleting " + dir + " in background.");
-        List<Path> failures = new ArrayList<>();
+        List<Failure> failures = new ArrayList<>();
         try {
             Files.walkFileTree(dir, Set.of(), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
                 /**
@@ -425,8 +452,9 @@ final class BackgroundCleaner implements Listener, Runnable {
                         // MCLEAN-93: NTFS junctions have isDirectory() and isOther() attributes set.
                         // Delete the junction itself and skip its contents to avoid deleting the
                         // contents of the junction target, which may be outside the project.
-                        if (!tryDeleteOnce(d, force, depth)) {
-                            failures.add(d);
+                        IOException ex = tryDeleteOnce(d, force, depth);
+                        if (ex != null) {
+                            failures.add(new Failure(d, ex, depth));
                         }
                         return FileVisitResult.SKIP_SUBTREE;
                     }
@@ -436,8 +464,9 @@ final class BackgroundCleaner implements Listener, Runnable {
 
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (!tryDeleteOnce(file, force, depth)) {
-                        failures.add(file);
+                    IOException ex = tryDeleteOnce(file, force, depth);
+                    if (ex != null) {
+                        failures.add(new Failure(file, ex, depth));
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -445,20 +474,21 @@ final class BackgroundCleaner implements Listener, Runnable {
                 @Override
                 public FileVisitResult postVisitDirectory(Path d, IOException exc) {
                     depth--;
-                    if (!tryDeleteOnce(d, force, depth)) {
-                        failures.add(d);
+                    IOException ex = tryDeleteOnce(d, force, depth);
+                    if (ex != null) {
+                        failures.add(new Failure(d, ex, depth));
                     }
                     return FileVisitResult.CONTINUE;
                 }
 
                 @Override
                 public FileVisitResult visitFileFailed(Path file, IOException exc) {
-                    failures.add(file);
+                    failures.add(new Failure(file, exc, depth));
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
-            errorOccurred(e);
+            errorOccurred(e, failOnError);
             return;
         }
         if (!failures.isEmpty() && retryOnError) {
@@ -467,41 +497,55 @@ final class BackgroundCleaner implements Listener, Runnable {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 // Report collected failures before returning.
-                errorOccurred(buildFailureException(failures));
+                errorOccurred(buildFailureException(failures), failOnError);
                 return;
             }
-            List<Path> remaining = new ArrayList<>();
-            for (Path path : failures) {
-                if (!tryDeleteOnce(path, force, 0)) {
-                    remaining.add(path);
+            List<Failure> remaining = new ArrayList<>();
+            for (Failure failure : failures) {
+                IOException ex = tryDeleteOnce(failure.path(), force, failure.depth());
+                if (ex != null) {
+                    remaining.add(new Failure(failure.path(), ex, failure.depth()));
                 }
             }
             if (!remaining.isEmpty()) {
-                errorOccurred(buildFailureException(remaining));
+                errorOccurred(buildFailureException(remaining), failOnError);
             }
         } else if (!failures.isEmpty()) {
-            errorOccurred(buildFailureException(failures));
+            errorOccurred(buildFailureException(failures), failOnError);
         }
     }
 
     /**
-     * Builds an {@link IOException} that reports the failing paths (capped at 10) and total count.
+     * Builds an {@link IOException} that reports the failing paths (capped at 10) with their causes,
+     * and the total count. Each path is followed by the exception type and message so the user can
+     * distinguish an {@link AccessDeniedException} from a {@link java.nio.file.DirectoryNotEmptyException}
+     * from a Windows file lock.
      *
-     * @param failures the list of paths that could not be deleted
-     * @return an exception describing the failures
+     * @param failures the list of failures (path + cause) that could not be deleted
+     * @return an exception describing the failures, with individual causes attached as suppressed
      */
-    private static IOException buildFailureException(List<Path> failures) {
+    private static IOException buildFailureException(List<Failure> failures) {
         StringBuilder sb = new StringBuilder("Failed to delete ")
                 .append(failures.size())
                 .append(" path(s) during background clean");
         int limit = Math.min(failures.size(), 10);
         for (int i = 0; i < limit; i++) {
-            sb.append("\n  ").append(failures.get(i));
+            Failure f = failures.get(i);
+            sb.append("\n  ").append(f.path());
+            if (f.cause() != null) {
+                sb.append(": ").append(f.cause());
+            }
         }
         if (failures.size() > limit) {
             sb.append("\n  ... and ").append(failures.size() - limit).append(" more");
         }
-        return new IOException(sb.toString());
+        IOException result = new IOException(sb.toString());
+        for (int i = 0; i < limit; i++) {
+            if (failures.get(i).cause() != null) {
+                result.addSuppressed(failures.get(i).cause());
+            }
+        }
+        return result;
     }
 
     /**
@@ -514,12 +558,12 @@ final class BackgroundCleaner implements Listener, Runnable {
      * @param force whether to make read-only files writable before retrying
      * @param currentDepth the depth of the file relative to the staged root, used by
      *                     {@link Cleaner#setWritable} to walk up to the parent directory
-     * @return {@code true} if the file was deleted or did not exist
+     * @return {@code null} if the file was deleted or did not exist, otherwise the exception that prevented deletion
      */
-    private static boolean tryDeleteOnce(Path file, boolean force, int currentDepth) {
+    private static IOException tryDeleteOnce(Path file, boolean force, int currentDepth) {
         try {
             Files.deleteIfExists(file);
-            return true;
+            return null;
         } catch (AccessDeniedException e) {
             if (force) {
                 Set<Path> madeWritable = new HashSet<>();
@@ -528,25 +572,38 @@ final class BackgroundCleaner implements Listener, Runnable {
                     while (madeWritable.add(Cleaner.setWritable(file, currentDepth))) {
                         try {
                             Files.deleteIfExists(file);
-                            return true;
+                            return null;
                         } catch (AccessDeniedException again) {
                             // Continue loop — try making the next level writable.
                         }
                     }
                 } catch (IOException retry) {
-                    return false;
+                    return retry;
                 }
             }
-            return false;
+            return e;
         } catch (IOException e) {
-            return false;
+            return e;
         }
     }
 
     /**
      * Stores the given error for later reporting. This method can be invoked from any thread.
+     * When {@code failOnError} is {@code true}, the error is stored in {@link #fatalErrors}
+     * so that {@link #run()} can throw an {@link UncheckedIOException} at session end, causing
+     * the build to fail — matching the foreground {@link Cleaner}'s behavior.
+     *
+     * @param e           the error to store
+     * @param failOnError whether this error should cause a build failure
      */
-    private synchronized void errorOccurred(IOException e) {
+    private synchronized void errorOccurred(IOException e, boolean failOnError) {
+        if (failOnError) {
+            if (fatalErrors == null) {
+                fatalErrors = e;
+            } else {
+                fatalErrors.addSuppressed(e);
+            }
+        }
         if (errors == null) {
             errors = e;
         } else {
@@ -566,8 +623,8 @@ final class BackgroundCleaner implements Listener, Runnable {
         }
         session.unregisterListener(this);
         if (filesToDeleteAtEnd != null) {
-            filesToDeleteAtEnd.forEach(
-                    (d) -> executor.submit(() -> deleteInBackground(d.dir(), d.force(), d.retryOnError())));
+            filesToDeleteAtEnd.forEach((d) ->
+                    executor.submit(() -> deleteInBackground(d.dir(), d.force(), d.retryOnError(), d.failOnError())));
         }
         if (fastMode == FastMode.DEFER) {
             executor.submit(this);
@@ -596,6 +653,12 @@ final class BackgroundCleaner implements Listener, Runnable {
      * but it may not be really last if a timeout occurred while waiting for the completion of
      * other tasks, or if the wait has been interrupted, or if using a multi-threaded executor
      * with {@link FastMode#DEFER}.
+     *
+     * <p>When background deletions that had {@code failOnError=true} failed, this method throws
+     * an {@link UncheckedIOException} so that the build fails — matching the foreground
+     * {@link Cleaner}'s behavior. Non-fatal errors are logged as warnings.</p>
+     *
+     * @throws UncheckedIOException if any background deletion with {@code failOnError=true} failed
      */
     @Override
     public synchronized void run() {
@@ -605,12 +668,17 @@ final class BackgroundCleaner implements Listener, Runnable {
             } catch (DirectoryNotEmptyException e) {
                 // Ignore as per method contract. Maybe another plugin started to write its output.
             } catch (IOException e) {
-                errorOccurred(e);
+                errorOccurred(e, false);
             }
         }
         if (errors != null) {
             logger.warn("Errors during background file deletion.", errors);
             errors = null;
+        }
+        if (fatalErrors != null) {
+            IOException fatal = fatalErrors;
+            fatalErrors = null;
+            throw new UncheckedIOException("Failed to clean project: " + fatal.getMessage(), fatal);
         }
     }
 }
