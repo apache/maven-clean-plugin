@@ -260,6 +260,46 @@ class BackgroundCleanerTest {
         assertFalse(exists(fastDir), "staging directory must be deleted: read-only directory must be force-deleted");
     }
 
+    /**
+     * With {@code force=true}, {@code tryDeleteOnce} must handle <em>both</em> a read-only file
+     * <em>and</em> its read-only parent directory by looping through {@link Cleaner#setWritable}
+     * calls — first making the file writable (which is not enough to delete it, because the parent
+     * directory is still read-only), then making the parent directory writable on the next iteration.
+     *
+     * <p>This is the scenario that slawekjaranowski verified against {@code src/it/read-only/setup.groovy}:
+     * a file at {@code r--r--r--} inside a directory at {@code dr-xr-xr-x}. The foreground
+     * {@link Cleaner#tryDelete} handles this via its {@code while (madeWritable.add(setWritable(...)))}
+     * loop; this test verifies the background path has the same loop.</p>
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void forceDeleteHandlesReadOnlyFileAndDirectory(@TempDir Path tempDir) throws Exception {
+        Path fastDir = tempDir.resolve(".clean");
+        Path target = createDirectory(tempDir.resolve("target"));
+        Path subDir = createDirectory(target.resolve("subdir"));
+        Path file = createFile(subDir.resolve("file.txt"));
+        // Make the file read-only AND the directory read-only — the double read-only case.
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("r--r--r--"));
+        Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
+
+        Log log = mock(Log.class);
+        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
+        Session session = mockSession(captor);
+
+        BackgroundCleaner bc = BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
+        assertTrue(bc.fastDelete(target, true, true));
+
+        assertTrue(exists(fastDir), "staging directory must exist after fastDelete");
+
+        Event event = mock(Event.class);
+        when(event.getType()).thenReturn(EventType.SESSION_ENDED);
+        captor.getValue().onEvent(event);
+
+        assertFalse(
+                exists(fastDir),
+                "staging directory must be deleted: read-only file in read-only directory must be force-deleted");
+    }
+
     // -----------------------------------------------------------------------
     // scanForLeftovers — leftover directories are cleaned on next build
     // -----------------------------------------------------------------------

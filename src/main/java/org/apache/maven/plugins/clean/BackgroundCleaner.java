@@ -30,6 +30,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -506,7 +507,8 @@ final class BackgroundCleaner implements Listener, Runnable {
     /**
      * Tries to delete a single file or directory once, without retry delays or {@code System.gc()}.
      * If {@code force} is enabled and deletion fails with {@link AccessDeniedException},
-     * the file (or its parent directory) is made writable and deletion is retried immediately (once).
+     * the file and its parent directories are made writable iteratively (mirroring the loop in
+     * {@link Cleaner#tryDelete}) until deletion succeeds or no further progress can be made.
      *
      * @param file  the file or directory to delete
      * @param force whether to make read-only files writable before retrying
@@ -520,10 +522,17 @@ final class BackgroundCleaner implements Listener, Runnable {
             return true;
         } catch (AccessDeniedException e) {
             if (force) {
+                Set<Path> madeWritable = new HashSet<>();
+                madeWritable.add(null); // sentinel so add(null) returns false
                 try {
-                    Cleaner.setWritable(file, currentDepth);
-                    Files.deleteIfExists(file);
-                    return true;
+                    while (madeWritable.add(Cleaner.setWritable(file, currentDepth))) {
+                        try {
+                            Files.deleteIfExists(file);
+                            return true;
+                        } catch (AccessDeniedException again) {
+                            // Continue loop — try making the next level writable.
+                        }
+                    }
                 } catch (IOException retry) {
                     return false;
                 }
