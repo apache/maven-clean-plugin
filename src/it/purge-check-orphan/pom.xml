@@ -17,8 +17,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>test</groupId>
@@ -26,11 +25,9 @@ under the License.
   <version>1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
-  <description>
-    Verify that purge-check removes a child directory whose only non-hidden entry is target/
+  <description>Verify that purge-check removes a child directory whose only non-hidden entry is target/
     (simulating a sub-project removed from the reactor after a git operation),
-    while leaving intact a child directory that still has other content alongside target/.
-  </description>
+    while leaving intact a child directory that still has other content alongside target/.</description>
 
   <modules>
     <module>sub-existing</module>
@@ -45,10 +42,10 @@ under the License.
         <executions>
           <execution>
             <id>purge-check</id>
-            <phase>initialize</phase>
             <goals>
               <goal>purge-check</goal>
             </goals>
+            <phase>initialize</phase>
           </execution>
         </executions>
       </plugin>
