@@ -29,4 +29,6 @@ if (new File(basedir, ".fastdir").exists()) {
 }
 
 File buildLog = new File(basedir, 'build.log')
-return buildLog.text.contains('mvn-background-cleaner')
+// Verify the fast-delete path was used by checking for the debug message
+// emitted by deleteInBackground().
+return buildLog.text.contains('Deleting') && buildLog.text.contains('in background')

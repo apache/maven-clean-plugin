@@ -432,12 +432,13 @@ final class Cleaner implements FileVisitor<Path> {
      * configuration. Otherwise returns {@code false}.
      *
      * <p><b>Note:</b> {@code failOnError} is not passed to the background path because
-     * a session-end listener cannot structurally fail the build. See
-     * {@link BackgroundCleaner#fastDelete(Path, boolean, boolean)} for details.</p>
+     * once the atomic move succeeds, any deletion failures in the staging area cannot
+     * affect the new build. See {@link BackgroundCleaner#fastDelete(Path, boolean, boolean)}
+     * for details.</p>
      *
      * @param basedir the directory to delete, must not be {@code null}
      * @return whether this method was able to register the background task
-     * @throws IOException if an error occurred while preparing the task before execution in a background thread
+     * @throws IOException if an error occurred while preparing the task (e.g. the atomic move failed)
      */
     private boolean fastDelete(Path baseDir) throws IOException {
         if (backgroundCleaner != null) {
