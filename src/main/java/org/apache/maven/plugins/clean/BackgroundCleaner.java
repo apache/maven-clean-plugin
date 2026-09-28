@@ -333,11 +333,11 @@ final class BackgroundCleaner implements Listener, Runnable {
             return false;
         }
         /*
-         * The default directory is `${maven.multiModuleProjectDirectory}/target/.clean`.
-         * This is fine when cleaning a multi-project, in which case this directory will
-         * be shared by all subprojects and should not interfere with any subproject.
-         * However, when cleaning a single project, that default directory may be inside
-         * the `target` directory to delete. In such case, we need a 3 steps process:
+         * The default directory is `${rootDirectory}/.mvn/target/clean`, which is outside
+         * any subproject's `target/` tree and therefore never accidentally deleted by a clean
+         * invocation. The three-step workaround below is only needed when the user explicitly
+         * configures `fastDir` to a location inside a directory being cleaned (e.g. the old
+         * default `target/.clean`). In that case:
          *
          *  1) The `target` directory is renamed to temporary name inside the same parent directory.
          *  2) A new `target` directory is created with a `.clean` sub-folder (after this `if` block).
@@ -369,7 +369,7 @@ final class BackgroundCleaner implements Listener, Runnable {
          * Create a temporary directory inside `fastDir` and all parent directories if needed.
          * The prefix is the name of parent directory, which is usually the subproject name.
          * It allows to recognize the target directory when all of them are moved to the same
-         * `${maven.multiModuleProjectDirectory}/target/.clean` directory.
+         * {@code ${rootDirectory}/.mvn/target/clean} directory.
          */
         String prefix = parent.getFileName().toString() + '-';
         Path tmpDir = Files.createTempDirectory(Files.createDirectories(fastDir), prefix);
