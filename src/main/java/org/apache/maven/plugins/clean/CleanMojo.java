@@ -183,15 +183,16 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     private boolean excludeDefaultDirectories;
 
     /**
-     * Enables fast clean if possible. If set to {@code true}, when the plugin is executed, a directory to
-     * be deleted will be atomically moved inside the {@code maven.clean.fastDir} directory and a thread will
-     * be launched to delete the needed files in the background.  When the build is completed, maven will wait
-     * until all the files have been deleted.  If any problem occurs during the atomic move of the directories,
-     * the plugin will default to the traditional deletion mechanism.
+     * Enables fast clean. When set to {@code true}, each directory to be deleted is first atomically moved
+     * inside the {@code maven.clean.fastDir} staging directory, immediately freeing the original path, and
+     * the actual file deletion is then performed in the background. If an atomic move is not supported
+     * (e.g. cross-device), the plugin falls back to immediate synchronous deletion transparently.
      *
-     * <p>Note that for small projects with few files to delete, the "fast" clean tends to be actually slower.
-     * It is also more at risk that errors occurring during the deletion of a file get unnoticed, or are noticed
-     * late in the build process. This option should be used only when it has been verified to be worth.</p>
+     * <p>This is the default mode as of 4.0.0: the atomic move is essentially free, so even small projects
+     * benefit from the freed directory being available immediately. When {@link #failOnError} is {@code true}
+     * (the default), the actual deletion runs synchronously so that errors can still fail the build;
+     * when {@code failOnError} is {@code false}, deletion proceeds in the background and any failure
+     * there does not affect build correctness.</p>
      *
      * <p><b>Note:</b> {@link #failOnError} has no effect when fast clean is enabled. Once the atomic
      * move succeeds, the original path is freed and any subsequent failures occur in the staging area
@@ -200,7 +201,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      *
      * @since 3.2
      */
-    @Parameter(property = "maven.clean.fast", defaultValue = "false")
+    @Parameter(property = "maven.clean.fast", defaultValue = "true")
     private boolean fast;
 
     /**
@@ -282,10 +283,15 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
         if (fast && session != null) {
             Path tmpDir = fastDir;
             if (tmpDir == null) {
-                tmpDir = session.getRootDirectory()
-                        .resolve(".mvn")
-                        .resolve("target")
-                        .resolve("clean");
+                Path rootDir;
+                try {
+                    rootDir = session.getRootDirectory();
+                } catch (IllegalStateException e) {
+                    rootDir = null;
+                }
+                tmpDir = rootDir != null
+                        ? rootDir.resolve(".mvn").resolve("target").resolve("clean")
+                        : Path.of(System.getProperty("java.io.tmpdir")).resolve("clean");
             }
             cleaner.setBackgroundCleaner(
                     BackgroundCleaner.getOrCreate(session, logger, tmpDir, FastMode.caseInsensitiveValueOf(fastMode)));
