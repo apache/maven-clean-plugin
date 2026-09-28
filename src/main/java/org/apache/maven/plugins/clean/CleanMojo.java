@@ -149,10 +149,11 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     /**
      * Indicates whether the build will continue even if there are clean errors.
      *
-     * <p><b>Note:</b> when {@link #fast} is {@code true}, this parameter has no effect on the
-     * background deletion path. A session-end listener cannot structurally fail the build in
-     * Maven, so errors from background deletions are always logged as warnings regardless of
-     * this setting. Use {@code fast=false} if you need the build to fail on clean errors.</p>
+     * <p>This parameter applies to the non-fast deletion path only. When {@link #fast} is
+     * {@code true} (the default), the atomic directory move immediately frees the original path,
+     * and any subsequent deletion failures occur in the staging area ({@code fastDir}). Those
+     * failures cannot affect the new build and are always logged as warnings at session end,
+     * regardless of this setting.</p>
      *
      * @since 2.2
      */
@@ -192,10 +193,10 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * It is also more at risk that errors occurring during the deletion of a file get unnoticed, or are noticed
      * late in the build process. This option should be used only when it has been verified to be worth.</p>
      *
-     * <p><b>Note:</b> {@link #failOnError} has no effect when fast clean is enabled. Background deletions
-     * run from a session-end listener, which cannot structurally fail the build — Maven catches whatever
-     * a listener throws and downgrades it to a warning. Errors from background deletions are always
-     * logged as warnings.</p>
+     * <p><b>Note:</b> {@link #failOnError} has no effect when fast clean is enabled. Once the atomic
+     * move succeeds, the original path is freed and any subsequent failures occur in the staging area
+     * only — they cannot affect build correctness. Errors are therefore always logged as warnings at
+     * session end. Use {@code fast=false} if you need the build to fail on clean errors.</p>
      *
      * @since 3.2
      */

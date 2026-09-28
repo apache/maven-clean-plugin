@@ -31,8 +31,10 @@ assert !new File( basedir, 'module-noforce/target' ).exists() : 'module-noforce/
 // The shared staging directory should be cleaned after the session ends
 assert !new File( basedir, '.fastdir' ).exists() : '.fastdir staging directory should have been deleted'
 
-// The background cleaner thread must have been used (proves session-scoped sharing)
-assert log.contains( 'mvn-background-cleaner' ) : 'expected background cleaner thread name in log'
+// The background cleaner must have been used (proves session-scoped sharing).
+// Verify the fast-delete path was used by checking for the debug message
+// emitted by deleteInBackground().
+assert log.contains( 'in background' ) : 'expected background cleaner staging message in log'
 
 // Build must succeed
 assert log.contains( 'BUILD SUCCESS' ) : 'expected BUILD SUCCESS'

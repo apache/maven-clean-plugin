@@ -279,7 +279,12 @@ final class BackgroundCleaner implements Listener, Runnable {
                 for (Path child : stream) {
                     if (Files.isDirectory(child)) {
                         logger.debug("Cleaning leftover directory from previous build: " + child);
-                        executor.submit(() -> deleteInBackground(child, false, true));
+                        executor.submit(() -> {
+                            IOException e = deleteInBackground(child, false, true);
+                            if (e != null) {
+                                errorOccurred(e);
+                            }
+                        });
                     }
                 }
             } catch (IOException e) {
@@ -306,16 +311,18 @@ final class BackgroundCleaner implements Listener, Runnable {
      * Deletes the specified directory and its contents in a background thread.
      * This method is synchronized to support concurrent calls from parallel subproject builds.
      *
-     * <p><b>Note:</b> {@code failOnError} has no effect when {@code fast=true}. A session-end
-     * listener cannot structurally fail the build — Maven catches whatever a listener throws and
-     * downgrades it to a warning. Errors from background deletions are logged as warnings instead.
-     * See the {@code failOnError} and {@code fast} parameter documentation on the plugin site.</p>
+     * <p><b>Note:</b> {@code failOnError} has no effect in fast mode. The fast-clean mechanism
+     * first performs an atomic directory move, which immediately frees the original path. Any
+     * subsequent deletion failures occur in the staging area ({@code fastDir}) and cannot affect
+     * the new build — the old files are already out of the way. Errors from background deletions
+     * are therefore always logged as warnings at session end, regardless of {@code failOnError}.
+     * Use {@code fast=false} if you need clean failures to fail the build.</p>
      *
      * @param baseDir       the directory to delete, must not be {@code null}
      * @param force         whether to force the deletion of read-only files
      * @param retryOnError  whether to undertake a batch retry of failed deletions
      * @return whether this method was able to register the background task
-     * @throws IOException if an error occurred while preparing the task before execution in a background thread
+     * @throws IOException if an error occurred while preparing the task (e.g. the atomic move failed)
      */
     synchronized boolean fastDelete(Path baseDir, boolean force, boolean retryOnError) throws IOException {
         if (disabled) {
@@ -386,7 +393,12 @@ final class BackgroundCleaner implements Listener, Runnable {
             if (filesToDeleteAtEnd != null) {
                 filesToDeleteAtEnd.add(new DeferredDeletion(dir, force, retryOnError));
             } else {
-                executor.submit(() -> deleteInBackground(dir, force, retryOnError));
+                executor.submit(() -> {
+                    IOException e = deleteInBackground(dir, force, retryOnError);
+                    if (e != null) {
+                        errorOccurred(e);
+                    }
+                });
             }
         } catch (IOException | RuntimeException e) {
             try {
@@ -400,10 +412,11 @@ final class BackgroundCleaner implements Listener, Runnable {
     }
 
     /**
-     * Deletes the given directory in a background thread using batch retry.
-     * Unlike the foreground {@link Cleaner}, this method does not call {@code System.gc()}
+     * Deletes the given directory using batch retry.
+     *
+     * <p>This method runs in the background executor thread. It does not call {@code System.gc()}
      * or sleep per file, avoiding the stop-the-world JVM pauses that caused the performance
-     * regression described in MCLEAN-102.
+     * regression described in MCLEAN-102.</p>
      *
      * <p>The deletion proceeds in two passes:</p>
      * <ol>
@@ -425,8 +438,10 @@ final class BackgroundCleaner implements Listener, Runnable {
      * @param dir          the directory to delete
      * @param force        whether to force the deletion of read-only files
      * @param retryOnError whether to undertake a batch retry of failed deletions
+     * @return the first {@link IOException} that occurred (with additional failures attached as
+     *         suppressed exceptions), or {@code null} if all deletions succeeded
      */
-    private void deleteInBackground(Path dir, boolean force, boolean retryOnError) {
+    private IOException deleteInBackground(Path dir, boolean force, boolean retryOnError) {
         logger.debug("Deleting " + dir + " in background.");
         List<Failure> failures = new ArrayList<>();
         try {
@@ -479,8 +494,7 @@ final class BackgroundCleaner implements Listener, Runnable {
                 }
             });
         } catch (IOException e) {
-            errorOccurred(e);
-            return;
+            return e;
         }
         if (!failures.isEmpty() && retryOnError) {
             try {
@@ -488,8 +502,7 @@ final class BackgroundCleaner implements Listener, Runnable {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 // Report collected failures before returning.
-                errorOccurred(buildFailureException(failures));
-                return;
+                return buildFailureException(failures);
             }
             List<Failure> remaining = new ArrayList<>();
             for (Failure failure : failures) {
@@ -499,11 +512,12 @@ final class BackgroundCleaner implements Listener, Runnable {
                 }
             }
             if (!remaining.isEmpty()) {
-                errorOccurred(buildFailureException(remaining));
+                return buildFailureException(remaining);
             }
         } else if (!failures.isEmpty()) {
-            errorOccurred(buildFailureException(failures));
+            return buildFailureException(failures);
         }
+        return null;
     }
 
     /**
@@ -584,10 +598,9 @@ final class BackgroundCleaner implements Listener, Runnable {
      *
      * <p><b>Note:</b> {@code failOnError} is intentionally not propagated to the background path.
      * A session-end listener cannot structurally fail the build: Maven catches whatever a listener
-     * throws and downgrades it to a warning about an internal spy notification. Attempting to
-     * {@code throw} from {@link #run()} would only produce a misleading
-     * {@code "Failed to notify spy EventSpyImpl"} message without affecting the exit code.
-     * See the follow-up issue for honouring {@code failOnError} in fast mode.</p>
+     * throws and downgrades it to a warning. Moreover, once the atomic move succeeds, failures
+     * during staging-area cleanup cannot affect the new build. See the {@code failOnError} and
+     * {@code fast} parameter documentation on the plugin site.</p>
      *
      * @param e the error to store
      */
@@ -611,8 +624,12 @@ final class BackgroundCleaner implements Listener, Runnable {
         }
         session.unregisterListener(this);
         if (filesToDeleteAtEnd != null) {
-            filesToDeleteAtEnd.forEach(
-                    (d) -> executor.submit(() -> deleteInBackground(d.dir(), d.force(), d.retryOnError())));
+            filesToDeleteAtEnd.forEach((d) -> executor.submit(() -> {
+                IOException e = deleteInBackground(d.dir(), d.force(), d.retryOnError());
+                if (e != null) {
+                    errorOccurred(e);
+                }
+            }));
         }
         if (fastMode == FastMode.DEFER) {
             executor.submit(this);
