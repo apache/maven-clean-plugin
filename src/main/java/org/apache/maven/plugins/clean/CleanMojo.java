@@ -206,8 +206,13 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
     /**
      * When fast clean is enabled,
      * the location where directories to be deleted will be moved prior to background deletion.
-     * If not specified, the {@code ${maven.multiModuleProjectDirectory}/target/.clean} directory will be used.
-     * If the {@code ${build.directory}} has been modified, you'll have to adjust this property explicitly.
+     * If not specified, the {@code ${rootDirectory}/.mvn/target/clean} directory will be used.
+     * The {@code .mvn/target/} tree is covered by the standard {@code target/} gitignore pattern,
+     * and used for Maven infrastructure such as the project-local repository.
+     * Because it is outside of any subproject {@code target/} tree, it is never accidentally deleted
+     * by a concurrent or subsequent clean invocation.
+     * If the {@code ${build.directory}} is on a different filesystem from the project root,
+     * you will have to adjust this property explicitly.
      * In order for fast clean to work correctly, this directory and the various directories that will be deleted
      * should usually reside on the same volume.  The exact conditions are system-dependent though, but if an atomic
      * move is not supported, the immediate deletion mechanism will be used.
@@ -277,7 +282,10 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
         if (fast && session != null) {
             Path tmpDir = fastDir;
             if (tmpDir == null) {
-                tmpDir = session.getRootDirectory().resolve("target").resolve(".clean");
+                tmpDir = session.getRootDirectory()
+                        .resolve(".mvn")
+                        .resolve("target")
+                        .resolve("clean");
             }
             cleaner.setBackgroundCleaner(
                     BackgroundCleaner.getOrCreate(session, logger, tmpDir, FastMode.caseInsensitiveValueOf(fastMode)));
