@@ -32,6 +32,10 @@ updates:
     schedule:
       interval: "daily"
     target-branch: "maven-clean-plugin-3.x"
+    ignore:
+      # Maven 3.9.x core exports slf4j-api 1.7.36
+      - dependency-name: "org.slf4j:*"
+        versions: [">= 2.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
