@@ -80,5 +80,5 @@ Additional Resources
 [code-style]: https://maven.apache.org/developers/conventions/code.html
 [cla]: https://www.apache.org/licenses/#clas
 [maven-wiki]: https://cwiki.apache.org/confluence/display/MAVEN/Index
-[test-results]: https://ci-maven.apache.org/job/Maven/job/maven-box/job/maven-clean-plugin/job/maven-clean-plugin-3.x/lastCompletedBuild/testReport/
-[build]: https://ci-maven.apache.org/job/Maven/job/maven-box/job/maven-clean-plugin/job/maven-clean-plugin-3.x/
+[test-results]: https://ci-maven.apache.org/job/Maven/job/maven-box/job/maven-clean-plugin/job/master/lastCompletedBuild/testReport/
+[build]: https://ci-maven.apache.org/job/Maven/job/maven-box/job/maven-clean-plugin/job/master/
