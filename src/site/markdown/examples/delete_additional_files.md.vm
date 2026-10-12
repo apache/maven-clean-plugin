@@ -27,7 +27,7 @@ under the License.
 
 # Delete Additional Files
 
-By default, the Maven Clean Plugin deletes the `target` directory. You can configure it to delete more directories and files. The example below shows how:
+By default, the Maven Clean Plugin deletes the `target` directory. You can configure it to delete other directories and files too. The example below shows how:
 
 ```unknown
 <build>
