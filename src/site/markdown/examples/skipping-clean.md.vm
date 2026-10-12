@@ -1,5 +1,5 @@
 ---
-title: Skipping Clean
+title: Skip Clean
 author: 
   - Vincent Siveton
 date: 2007-11-13
@@ -24,9 +24,9 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-# Skipping Clean
+# Skip Clean
 
-To skip running the cleanup for a particular project, set the `skip` property to `true`.
+To skip cleanup for a project, set the `skip` property to `true`.
 
 ```unknown
 <build>
@@ -42,7 +42,7 @@ To skip running the cleanup for a particular project, set the `skip` property to
 </build>
 ```
 
-You can also skip the cleaning via command line by executing the following command:
+You can also skip the cleanup from the command line. Run this command:
 
 ```unknown
 mvn clean -Dmaven.clean.skip=true
