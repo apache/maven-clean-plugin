@@ -26,7 +26,7 @@ under the License.
 
 # Ignore Errors
 
-To ignore errors during cleanup for a project, set the `failOnError` property to `false`.
+To ignore errors during project cleanup, set the `failOnError` property to `false`.
 
 ```unknown
 <build>
