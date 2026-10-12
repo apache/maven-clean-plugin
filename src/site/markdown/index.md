@@ -25,25 +25,29 @@ under the License.
 -->
 
 # Apache Maven Clean Plugin
-The Clean Plugin is used when you want to remove files generated at build-time in a project's directory.
+
+The Clean Plugin removes the files that Maven generates in the directory of a project during a build.
 
 ## Goals Overview
 
-The Clean Plugin only has one goal.
+The Clean Plugin has one goal.
 
-- [clean:clean](./clean-mojo.html) attempts to clean a project's working directory of the files that were generated at build-time. By default, it discovers and deletes the directories configured in `project.build.directory`, `project.build.outputDirectory`, `project.build.testOutputDirectory`, and `project.reporting.outputDirectory`.
+- [clean:clean](./clean-mojo.html) removes the files that Maven generates in the working directory of a project. By default, it finds and deletes the directories in `project.build.directory`, `project.build.outputDirectory`, `project.build.testOutputDirectory`, and `project.reporting.outputDirectory`.
+
 ## Usage
 
-General instructions on how to use the Clean Plugin can be found on the [usage page](./usage.html). Some more specific use cases are described in the examples given below.
+The [usage page](./usage.html) has general instructions for the Clean Plugin.
 
-In case you still have questions regarding the plugin's usage, please have a look at the [FAQ](./faq.html) and feel free to contact the [user mailing list](./mailing-lists.html). The posts to the mailing list are archived and could already contain the answer to your question as part of an older thread. Hence, it is also worth browsing/searching the [mail archive](./mailing-lists.html).
+If you have more questions about the plugin, see the [FAQ](./faq.html). You can also contact the [user mailing list](./mailing-lists.html). The project archives the posts to the mailing list, and an older thread can contain the answer to your question. You can also search the [mail archive](./mailing-lists.html).
 
-If you feel like the plugin is missing a feature or has a defect, you can submit a feature request or bug report in our [issue tracker](./issue-management.html). When creating a new issue, please provide a comprehensive description of your concern. Especially for fixing bugs it is crucial that the developers can reproduce your problem. For this reason, entire debug logs, POMs or most preferably little demo projects attached to the issue are very much appreciated. Of course, patches are welcome, too. Contributors can check out the project from our [source repository](./scm.html) and will find supplementary information in the [guide to helping with Maven](https://maven.apache.org/guides/development/guide-helping.html).
+If you think that the plugin misses a feature or has a defect, submit a feature request or a bug report in our [issue tracker](./issue-management.html). If you open a new issue, give a clear description of the problem. The developers must reproduce the problem to correct a bug. Thus, attach the full debug log and the POM to the issue. A small demo project is best.
+
+Patches are also welcome. Contributors can get the project from the [source repository](./scm.html). The [guide to helping with Maven](https://maven.apache.org/guides/development/guide-helping.html) has more information.
 
 ## Examples
 
-To provide you with better understanding on some usages of the Clean Plugin, you can take a look into the following examples:
+For more uses of the Clean Plugin, see these examples:
 
 - [How to delete additional files outside of the default directories?](./examples/delete_additional_files.html)
 - [How to ignore clean errors?](./examples/ignoring-errors.html)
-- [How to skipping clean execution?](./examples/skipping-clean.html)
+- [How to skip clean execution?](./examples/skipping-clean.html)
