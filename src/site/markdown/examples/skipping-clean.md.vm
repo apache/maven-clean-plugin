@@ -1,5 +1,5 @@
 ---
-title: Skip Clean
+title: Skipping Clean
 author: 
   - Vincent Siveton
 date: 2007-11-13
@@ -24,7 +24,7 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-# Skip Clean
+# Skipping Clean
 
 To skip cleanup for a project, set the `skip` property to `true`.
 
