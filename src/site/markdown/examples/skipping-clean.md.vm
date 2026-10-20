@@ -24,7 +24,7 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-# Skipping Clean
+# Skip Clean
 
 To skip cleanup for a project, set the `skip` property to `true`.
 
