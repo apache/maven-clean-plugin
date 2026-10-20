@@ -36,17 +36,15 @@ The Clean Plugin has one goal.
 
 ## Usage
 
-The [usage page](./usage.html) has general instructions for the Clean Plugin.
+General instructions for using the Clean Plugin can be found on the [usage page](./usage.html). Some more specific use cases are described in the examples given below.
 
-If you have more questions about the plugin, see the [FAQ](./faq.html). You can also contact the [user mailing list](./mailing-lists.html). The project archives the posts to the mailing list, and an older thread can contain the answer to your question. You can also search the [mail archive](./mailing-lists.html).
+If you have more questions about the plugin, see the [FAQ](./faq.html) and feel free to contact the [user mailing list](./mailing-lists.html). The posts to the mailing list are archived and could already contain the answer to your question as part of an older thread. Hence, it is also worth browsing/searching the [mail archive](./mailing-lists.html).
 
-If you think that the plugin misses a feature or has a defect, submit a feature request or a bug report in our [issue tracker](./issue-management.html). If you open a new issue, give a clear description of the problem. The developers must reproduce the problem to correct a bug. Thus, attach the full debug log and the POM to the issue. A small demo project is best.
-
-Patches are also welcome. Contributors can get the project from the [source repository](./scm.html). The [guide to helping with Maven](https://maven.apache.org/guides/development/guide-helping.html) has more information.
+If you think the plugin is missing a feature or has a defect, submit a feature request or bug report in our [issue tracker](./issue-management.html). When creating a new issue, give a clear description of your concern. Especially for fixing bugs, the developers must reproduce your problem. For this reason, entire debug logs, POMs, or preferably small demo projects attached to the issue are very much appreciated. Patches are also welcome. Contributors can check out the project from our [source repository](./scm.html) and find more information in the [guide to helping with Maven](https://maven.apache.org/guides/development/guide-helping.html).
 
 ## Examples
 
-For more uses of the Clean Plugin, see these examples:
+To better understand some uses of the Clean Plugin, see the following examples:
 
 - [How to delete additional files outside of the default directories?](./examples/delete_additional_files.html)
 - [How to ignore clean errors?](./examples/ignoring-errors.html)
