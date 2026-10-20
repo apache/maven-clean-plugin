@@ -38,7 +38,7 @@ The Clean Plugin has one goal.
 
 General instructions for using the Clean Plugin can be found on the [usage page](./usage.html). Some more specific use cases are described in the examples given below.
 
-If you have more questions about the plugin, see the [FAQ](./faq.html) and feel free to contact the [user mailing list](./mailing-lists.html). The posts to the mailing list are archived and could already contain the answer to your question as part of an older thread. Hence, it is also worth browsing/searching the [mail archive](./mailing-lists.html).
+If you have more questions about the plugin, see the [FAQ](./faq.html) or contact the [user mailing list](./mailing-lists.html). The mailing list is archived — it may already have an answer to your question. You can also search the [mail archive](./mailing-lists.html).
 
 If you think the plugin is missing a feature or has a defect, submit a feature request or bug report in our [issue tracker](./issue-management.html). When creating a new issue, give a clear description of your concern. Especially for fixing bugs, the developers must reproduce your problem. For this reason, entire debug logs, POMs, or preferably small demo projects attached to the issue are very much appreciated. Patches are also welcome. Contributors can check out the project from our [source repository](./scm.html) and find more information in the [guide to helping with Maven](https://maven.apache.org/guides/development/guide-helping.html).
 
