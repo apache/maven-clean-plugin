@@ -16,15 +16,33 @@
 #
 version: 2
 updates:
+
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "maven-clean-plugin-4.x"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "maven-clean-plugin-4.x"
+
   - package-ecosystem: "maven"
     directory: "/"
     schedule:
       interval: "daily"
     ignore:
-      # Ignore Maven Core updates
-      - dependency-name: "org.apache.maven:*"
+      # Maven 3.9.x core exports slf4j-api 1.7.36
+      - dependency-name: "org.slf4j:*"
+        versions: [">= 2.0.0"]
+      # Mockito 5 requires Java 11; the build still runs on JDK 8
+      - dependency-name: "org.mockito:*"
+        versions: [">= 5.0.0"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
-
+# trigger rescan: 2026-09-25
