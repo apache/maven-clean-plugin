@@ -63,9 +63,7 @@ under the License.
   <properties>
     <mavenVersion>4.0.0-rc-7</mavenVersion>
     <javaVersion>17</javaVersion>
-    <guiceVersion>6.0.0</guiceVersion>
     <slf4jVersion>2.0.20</slf4jVersion>
-    <version.maven-plugin-testing>4.0.0-beta-4</version.maven-plugin-testing>
     <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
     <version.maven-plugin-report-plugin>4.0.0-beta-2</version.maven-plugin-report-plugin>
     <project.build.outputTimestamp>2026-09-30T09:58:44Z</project.build.outputTimestamp>
@@ -104,9 +102,9 @@ under the License.
 
     <!-- Test -->
     <dependency>
-      <groupId>org.apache.maven.plugin-testing</groupId>
-      <artifactId>maven-plugin-testing-harness</artifactId>
-      <version>${version.maven-plugin-testing}</version>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-testing</artifactId>
+      <version>${mavenVersion}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -124,12 +122,6 @@ under the License.
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-core</artifactId>
       <version>${mavenVersion}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.google.inject</groupId>
-      <artifactId>guice</artifactId>
-      <version>${guiceVersion}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
