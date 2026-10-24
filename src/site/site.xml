@@ -33,8 +33,8 @@ under the License.
     </menu>
     <menu name="Examples">
       <item name="Delete Additional Files" href="examples/delete_additional_files.html"/>
-      <item name="Skipping Clean" href="examples/skipping-clean.html"/>
-      <item name="Ignoring Errors" href="examples/ignoring-errors.html"/>
+      <item name="Skip Clean" href="examples/skipping-clean.html"/>
+      <item name="Ignore Errors" href="examples/ignoring-errors.html"/>
     </menu>
   </body>
 </site>
