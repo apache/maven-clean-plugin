@@ -22,6 +22,10 @@ updates:
     schedule:
       interval: "daily"
     target-branch: "maven-clean-plugin-4.x"
+    ignore:
+      # Maven 4 core ships Guice 5 (javax.inject); Guice 7 is jakarta-only
+      - dependency-name: "com.google.inject:guice"
+        versions: [">= 7.0.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
