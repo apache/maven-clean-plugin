@@ -1,5 +1,5 @@
 ---
-title: Delete Additional Files Not Exposed to Maven
+title: Delete Additional Files
 author: 
   - Mike Perham
   - mperham@apache.org
@@ -25,9 +25,9 @@ specific language governing permissions and limitations
 under the License.
 -->
 
-# Delete Additional Files Not Exposed to Maven
+# Delete Additional Files
 
-The Maven Clean Plugin will delete the `target` directory by default. You may configure it to delete additional directories and files. The following example shows how:
+By default, the Maven Clean Plugin deletes the `target` directory. You can configure it to delete other directories and files too. The example below shows how:
 
 ```unknown
 <build>
@@ -56,18 +56,22 @@ The Maven Clean Plugin will delete the `target` directory by default. You may co
 </build>
 ```
 
-**Note:** The `directory` in the `fileset` is a relative path inside a project, in other words,
+**Note:** The `directory` in the `fileset` is a relative path in a project. That is,
 
 ```unknown
   <directory>some/relative/path</directory>
 ```
 
-is equivalent to:
+is the same as:
 
 ```unknown
   <directory>${esc.d}{basedir}/some/relative/path</directory>
 ```
 
-You could also define file set rules in a parent POM. In this case, the clean plugin adds the subproject basedir to the defined relative path.
+You can also define fileset rules in a parent POM. In this case, the Clean Plugin adds the basedir of the subproject to the relative path that you define.
 
-**Note:** The `fast` delete method will not work for any `fileset` which defines any `includes` or `excludes`, or sets `followSymlinks` to `false`, or sets `useDefaultExcludes` to `true`.
+**Note:** The `fast` delete method does not work for a `fileset` in these conditions:
+
+- The `fileset` defines `includes` or `excludes`.
+- The `fileset` sets `followSymlinks` to `false`.
+- The `fileset` sets `useDefaultExcludes` to `true`.
