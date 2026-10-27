@@ -43,8 +43,12 @@ updates:
       # Maven 3 line stays on Resolver 1.x (2.x is Maven 4)
       - dependency-name: "org.apache.maven.resolver:*"
         versions: [">= 2.0.0"]
-      # Maven 3 line: stay on Maven 3 core (4.x lives on the -4.x branch)
-      - dependency-name: "org.apache.maven:*"
+      # Maven 3 line: stay on Maven 3 core (4.x lives on the -4.x branch).
+      # Scoped to the core artifacts this plugin actually uses, so other
+      # org.apache.maven:* artifacts with their own release line are untouched.
+      - dependency-name: "org.apache.maven:maven-core"
+        versions: [">= 4.0.0"]
+      - dependency-name: "org.apache.maven:maven-plugin-api"
         versions: [">= 4.0.0"]
 
   - package-ecosystem: "github-actions"
