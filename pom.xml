@@ -63,15 +63,12 @@ under the License.
   <properties>
     <mavenVersion>4.0.0-rc-7</mavenVersion>
     <javaVersion>17</javaVersion>
+    <maven.site.path.suffix>LATEST-4.x</maven.site.path.suffix>
+
     <slf4jVersion>2.0.20</slf4jVersion>
     <version.maven-plugin-tools>4.0.0-beta-1</version.maven-plugin-tools>
     <version.maven-plugin-report-plugin>4.0.0-beta-2</version.maven-plugin-report-plugin>
     <project.build.outputTimestamp>2026-09-30T09:58:44Z</project.build.outputTimestamp>
-
-    <!-- TODO remove property maven4x.site.path with next parent -->
-    <maven4x.site.path>plugins-archives/${project.artifactId}-LATEST-4.x</maven4x.site.path>
-    <!-- 4.x publish -->
-    <maven.site.path>${maven4x.site.path}</maven.site.path>
   </properties>
 
   <dependencies>
