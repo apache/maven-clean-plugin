@@ -28,7 +28,7 @@ under the License.
 
 To skip running the cleanup for a particular project, set the `skip` property to `true`.
 
-```unknown
+```xml
 <build>
   [...]
     <plugin>
@@ -44,6 +44,6 @@ To skip running the cleanup for a particular project, set the `skip` property to
 
 You can also skip the cleaning via command line by executing the following command:
 
-```unknown
+```shell
 mvn clean -Dmaven.clean.skip=true
 ```
