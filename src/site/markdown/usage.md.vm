@@ -33,7 +33,7 @@ Cleaning a Maven project using the command-line
 
 The Clean Plugin can be called to execute in the command-line without any additional configurations. Like the other plugins, to run the Clean Plugin, you use:
 
-```unknown
+```shell
   mvn clean:clean
 ```
 
@@ -41,13 +41,13 @@ where the first `clean` refers to the plugin's alias, and the second `clean` ref
 
 However, the Clean Plugin is a special plugin and is bound to its own special lifecycyle phase called `clean`. Thus, for simplicity, it can also be executed by using:
 
-```unknown
+```shell
   mvn clean
 ```
 
 or with other phases/goals like:
 
-```unknown
+```shell
   mvn clean package site
 ```
 
@@ -56,7 +56,7 @@ Running the Clean Plugin automatically during a build
 
 If for some reason, adding `clean` to the command-line is not option, the Clean Plugin can be put into a project's `pom.xml` so that it gets executed everytime the project is built. Below is a sample `pom.xml` for running the Clean Plugin in the `initialize` phase everytime the project is built:
 
-```unknown
+```xml
 <project>
   [...]
   <build>

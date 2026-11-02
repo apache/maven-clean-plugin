@@ -28,7 +28,7 @@ under the License.
 
 To ignore errors when running the cleanup for a particular project, set the `failOnError` property to `false`.
 
-```unknown
+```xml
 <build>
   [...]
     <plugin>
@@ -44,6 +44,6 @@ To ignore errors when running the cleanup for a particular project, set the `fai
 
 You can also ignore them via command line by executing the following command:
 
-```unknown
+```shell
 mvn clean -Dmaven.clean.failOnError=false
 ```

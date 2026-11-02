@@ -29,7 +29,7 @@ under the License.
 
 The Maven Clean Plugin will delete the `target` directory by default. You may configure it to delete additional directories and files. The following example shows how:
 
-```unknown
+```xml
 <build>
   [...]
   <plugin>
@@ -58,13 +58,13 @@ The Maven Clean Plugin will delete the `target` directory by default. You may co
 
 **Note:** The `directory` in the `fileset` is a relative path inside a project, in other words,
 
-```unknown
+```xml
   <directory>some/relative/path</directory>
 ```
 
 is equivalent to:
 
-```unknown
+```xml
   <directory>${esc.d}{basedir}/some/relative/path</directory>
 ```
 
