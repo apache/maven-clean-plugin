@@ -283,11 +283,12 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
         if (fast && session != null) {
             Path tmpDir = fastDir;
             if (tmpDir == null) {
-                Path rootDir;
+                Path rootDir = null;
                 try {
                     rootDir = session.getRootDirectory();
                 } catch (IllegalStateException e) {
-                    rootDir = null;
+                    // Embedded usage where no root directory is available — fall through to fallback.
+                    logger.debug("Missing root directory, falling back to system temp directory.", e);
                 }
                 tmpDir = rootDir != null
                         ? rootDir.resolve(".mvn").resolve("target").resolve("clean")
