@@ -45,13 +45,16 @@ updates:
       - dependency-name: "org.apache.maven.resolver:*"
         versions: [">= 2.0.0"]
       # This plugin's Maven 3 line builds against 3.10.0 (see <mavenVersion>), so
-      # keep it on the 3.10.x line and only block the jump to Maven 4. Scoped to
-      # the core artifacts this plugin uses; other org.apache.maven:* artifacts
-      # with their own release line are untouched.
+      # keep it on the 3.10.x line. Cap the core-artifact ignores at the next
+      # minor (3.11) so Dependabot still offers 3.10.x patches, while a
+      # Maven-baseline minor bump (3.11) or the jump to Maven 4 stays a
+      # deliberate decision. Scoped to the core artifacts this plugin uses;
+      # other org.apache.maven:* artifacts with their own release line are
+      # untouched.
       - dependency-name: "org.apache.maven:maven-core"
-        versions: [">= 4.0.0"]
+        versions: [">= 3.11.0"]
       - dependency-name: "org.apache.maven:maven-plugin-api"
-        versions: [">= 4.0.0"]
+        versions: [">= 3.11.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
