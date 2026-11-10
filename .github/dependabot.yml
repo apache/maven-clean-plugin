@@ -40,21 +40,15 @@ updates:
       # Mockito 5 requires Java 11; the build still runs on JDK 8
       - dependency-name: "org.mockito:*"
         versions: [">= 5.0.0"]
-      # Build compiles against the Resolver 1.x API (maven-resolver-api 1.9.27);
-      # Resolver 2.x ships with Maven 3.10+ and 4.x, so keep Dependabot off it.
+      # Resolver 2.x is not part of the Maven 3.9 baseline.
       - dependency-name: "org.apache.maven.resolver:*"
         versions: [">= 2.0.0"]
-      # This plugin's Maven 3 line builds against 3.10.0 (see <mavenVersion>), so
-      # keep it on the 3.10.x line. Cap the core-artifact ignores at the next
-      # minor (3.11) so Dependabot still offers 3.10.x patches, while a
-      # Maven-baseline minor bump (3.11) or the jump to Maven 4 stays a
-      # deliberate decision. Scoped to the core artifacts this plugin uses;
-      # other org.apache.maven:* artifacts with their own release line are
-      # untouched.
+      # Baseline is Maven 3.9 with Resolver 1.9; Maven 3.10 pulls Resolver 2.x.
+      # Excludes the Maven artifacts this plugin uses.
       - dependency-name: "org.apache.maven:maven-core"
-        versions: [">= 3.11.0"]
+        versions: [">= 3.10.0"]
       - dependency-name: "org.apache.maven:maven-plugin-api"
-        versions: [">= 3.11.0"]
+        versions: [">= 3.10.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
