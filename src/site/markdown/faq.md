@@ -25,29 +25,19 @@ under the License.
 
 # Frequently Asked Questions
 
-1. [I already ran *mvn clean* but the directory (*put dir name here*) is still there. What should I do?](#I_already_ran_mvn_clean_but_the_directory_.28put_dir_name_here.29_is_still_there._What_should_I_do.3F)
-2. [On Windows, I got *&quot;Unable to delete directory&quot;*. What's wrong?](#On_Windows.2C_I_got_Unable_to_delete_directory._What_s_wrong.3F)
+1. [I already ran *mvn clean* but the directory (*put dir name here*) is still there. What can I do?](#I_already_ran_mvn_clean_but_the_directory_.28put_dir_name_here.29_is_still_there._What_should_I_do.3F)
+2. [On Windows, I got *&quot;Unable to delete directory&quot;*. What is wrong?](#On_Windows.2C_I_got_Unable_to_delete_directory._What_s_wrong.3F)
 
-### I already ran *mvn clean* but the directory (*put dir name here*) is still there. What should I do?
+<a id="I_already_ran_mvn_clean_but_the_directory_.28put_dir_name_here.29_is_still_there._What_should_I_do.3F"></a>
 
-Some files-generating plugins can generate their files outside of the
-default directories being deleted by the clean plugin. You should add
-the location of such files in the clean plugin configuration or change
-the configuration of those plugins to put their files inside the
-*project.build.directory* which is by default, the *target*
-directory.
+### I already ran *mvn clean* but the directory (*put dir name here*) is still there. What can I do?
+
+Some plugins generate their files outside the default directories that the Clean Plugin deletes. Add the location of these files to the configuration of the Clean Plugin. You can also change the configuration of those plugins. Then those plugins put their files in *project.build.directory*, which is the *target* directory by default.
 
 <a id="On_Windows.2C_I_got_Unable_to_delete_directory._What_s_wrong.3F"></a>
 
-### On Windows, I got *&quot;Unable to delete directory&quot;*. What's wrong?
+### On Windows, I got *&quot;Unable to delete directory&quot;*. What is wrong?
 
-For instance, *clean* could fail if you already have opened a command
-line with target as the current dir. Windows locks some ressources and you need
-to close the handles on these ressources.
-To skip these errors, you could call *clean* with the command line parameter *-Dmaven.clean.failOnError=false*.
-For more information, refer to [Ignoring Errors](./examples/ignoring-errors.html) page.
+For example, *clean* can fail if you opened a command line with *target* as the current directory. Windows locks some resources. You must close the handles on these resources. To skip these errors, call *clean* with the command-line parameter *-Dmaven.clean.failOnError=false*. For more information, see the [Ignore Errors](./examples/ignoring-errors.html) page.
 
-[Sysinternals](http://www.microsoft.com/technet/sysinternals/default.mspx) produced
-a number of utilities, like [Process Explorer](http://www.microsoft.com/technet/sysinternals/Utilities/ProcessExplorer.mspx)
-or [Handle](http://www.microsoft.com/technet/sysinternals/utilities/handle.mspx)
-that help you to deal with Windows handles.
+[Sysinternals](http://www.microsoft.com/technet/sysinternals/default.mspx) has several utilities, for example [Process Explorer](http://www.microsoft.com/technet/sysinternals/Utilities/ProcessExplorer.mspx) and [Handle](http://www.microsoft.com/technet/sysinternals/utilities/handle.mspx), that can help you to manage Windows handles.
