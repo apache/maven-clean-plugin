@@ -40,4 +40,4 @@ Some plugins generate their files outside the default directories that the Clean
 
 For example, *clean* can fail if you opened a command line with *target* as the current directory. Windows locks some resources. You must close the handles on these resources. To skip these errors, call *clean* with the command-line parameter *-Dmaven.clean.failOnError=false*. For more information, see the [Ignore Errors](./examples/ignoring-errors.html) page.
 
-[Sysinternals](http://www.microsoft.com/technet/sysinternals/default.mspx) has several utilities, for example [Process Explorer](http://www.microsoft.com/technet/sysinternals/Utilities/ProcessExplorer.mspx) and [Handle](http://www.microsoft.com/technet/sysinternals/utilities/handle.mspx), that can help you to manage Windows handles.
+[Sysinternals](https://learn.microsoft.com/en-us/sysinternals/) has several utilities, for example [Process Explorer](https://learn.microsoft.com/en-us/sysinternals/downloads/process-explorer) and [Handle](https://learn.microsoft.com/en-us/sysinternals/downloads/handle), that can help you to manage Windows handles.
