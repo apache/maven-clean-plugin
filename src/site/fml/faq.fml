@@ -49,9 +49,9 @@ under the License.
           For more information, refer to <a href="./examples/ignoring-errors.html">Ignoring Errors</a> page.
         </p>
         <p>
-          <a href="http://www.microsoft.com/technet/sysinternals/default.mspx">Sysinternals</a> produced
-          a number of utilities, like <a href="http://www.microsoft.com/technet/sysinternals/Utilities/ProcessExplorer.mspx">Process Explorer</a>
-          or <a href="http://www.microsoft.com/technet/sysinternals/utilities/handle.mspx">Handle</a>
+          <a href="https://learn.microsoft.com/en-us/sysinternals/">Sysinternals</a> produced
+          a number of utilities, like <a href="https://learn.microsoft.com/en-us/sysinternals/downloads/process-explorer">Process Explorer</a>
+          or <a href="https://learn.microsoft.com/en-us/sysinternals/downloads/handle">Handle</a>
           that help you to deal with Windows handles.
         </p>
       </answer>
