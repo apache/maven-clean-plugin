@@ -42,11 +42,11 @@ import org.junit.jupiter.api.condition.OS;
 
 import static org.apache.maven.api.plugin.testing.MojoExtension.getBasedir;
 import static org.codehaus.plexus.util.IOUtil.copy;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test the clean mojo.
@@ -174,9 +174,7 @@ class CleanMojoTest {
         File f = new File(getBasedir(), "/buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
-            mojo.execute();
-            fail("Should fail to delete a file that is locked");
-        } catch (MojoExecutionException expected) {
+            assertThrows(MojoExecutionException.class, mojo::execute, "Should fail to delete a file that is locked");
         }
     }
 
@@ -199,9 +197,7 @@ class CleanMojoTest {
         File f = new File(getBasedir(), "/buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
-            mojo.execute();
-        } catch (MojoExecutionException expected) {
-            fail("Should display a warning when deleting a file that is locked");
+            assertDoesNotThrow(mojo::execute, "Should display a warning when deleting a file that is locked");
         }
     }
 
