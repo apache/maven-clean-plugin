@@ -53,14 +53,14 @@ public class Fileset {
      * @return {@link #includes}
      */
     public String[] getIncludes() {
-        return (includes != null) ? includes : new String[0];
+        return includes != null ? includes : new String[0];
     }
 
     /**
      * @return {@link #excludes}
      */
     public String[] getExcludes() {
-        return (excludes != null) ? excludes : new String[0];
+        return excludes != null ? excludes : new String[0];
     }
 
     /**

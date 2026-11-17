@@ -48,7 +48,7 @@ class GlobSelector implements Selector {
     }
 
     private static String toString(String[] patterns) {
-        return (patterns == null) ? "[]" : Arrays.asList(patterns).toString();
+        return patterns == null ? "[]" : Arrays.asList(patterns).toString();
     }
 
     private static String[] addDefaultExcludes(String[] excludes, boolean useDefaultExcludes) {
@@ -85,7 +85,7 @@ class GlobSelector implements Selector {
             return "";
         }
 
-        String normalized = pattern.replace((File.separatorChar == '/') ? '\\' : '/', File.separatorChar);
+        String normalized = pattern.replace(File.separatorChar == '/' ? '\\' : '/', File.separatorChar);
 
         if (normalized.endsWith(File.separator)) {
             normalized += "**";

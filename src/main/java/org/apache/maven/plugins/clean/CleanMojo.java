@@ -301,7 +301,7 @@ public class CleanMojo extends AbstractMojo {
      * @return <code>true</code> if verbose output is enabled, <code>false</code> otherwise.
      */
     private boolean isVerbose() {
-        return (verbose != null) ? verbose : getLog().isDebugEnabled();
+        return verbose != null ? verbose : getLog().isDebugEnabled();
     }
 
     /**
