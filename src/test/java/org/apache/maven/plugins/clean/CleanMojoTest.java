@@ -26,7 +26,6 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collections;
 
 import org.apache.maven.api.plugin.Log;
@@ -256,7 +255,7 @@ class CleanMojoTest {
 
     private void testSymlink(LinkCreator linkCreator) throws Exception {
         Cleaner cleaner = new Cleaner(matcherFactory, log, false, false, false, true, false);
-        Path testDir = Paths.get("target/test-classes/unit/test-dir").toAbsolutePath();
+        Path testDir = Path.of("target/test-classes/unit/test-dir").toAbsolutePath();
         Path dirWithLnk = testDir.resolve("dir");
         Path orgDir = testDir.resolve("org-dir");
         Path jctDir = dirWithLnk.resolve("jct-dir");
