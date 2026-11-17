@@ -92,7 +92,7 @@ final class BackgroundCleaner implements Listener, Runnable {
     /**
      * Whether the host operating system is from the Windows family.
      */
-    private static final boolean ON_WINDOWS = (File.separatorChar == '\\');
+    private static final boolean ON_WINDOWS = File.separatorChar == '\\';
 
     /**
      * Key for storing the shared {@code BackgroundCleaner} instance in {@link SessionData}.
@@ -210,9 +210,9 @@ final class BackgroundCleaner implements Listener, Runnable {
         this.logger = logger;
         this.fastDir = fastDir;
         this.fastMode = fastMode;
-        filesToDeleteAtEnd = (fastMode != FastMode.BACKGROUND) ? new ArrayList<>() : null;
+        filesToDeleteAtEnd = fastMode != FastMode.BACKGROUND ? new ArrayList<>() : null;
         directoriesToDeleteIfEmpty = new LinkedHashSet<>(); // Will need to delete in order.
-        executor = Executors.newSingleThreadExecutor((task) -> new Thread(task, "mvn-background-cleaner"));
+        executor = Executors.newSingleThreadExecutor(task -> new Thread(task, "mvn-background-cleaner"));
         // Note: registerListener() and scanForLeftovers() are called by getOrCreate() AFTER
         // computeIfAbsent() returns, to avoid re-entrant ConcurrentHashMap access and to
         // prevent `this` from escaping the constructor.
@@ -624,7 +624,7 @@ final class BackgroundCleaner implements Listener, Runnable {
         }
         session.unregisterListener(this);
         if (filesToDeleteAtEnd != null) {
-            filesToDeleteAtEnd.forEach((d) -> executor.submit(() -> {
+            filesToDeleteAtEnd.forEach(d -> executor.submit(() -> {
                 IOException e = deleteInBackground(d.dir(), d.force(), d.retryOnError());
                 if (e != null) {
                     errorOccurred(e);
