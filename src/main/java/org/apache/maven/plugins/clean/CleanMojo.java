@@ -225,6 +225,7 @@ public class CleanMojo extends AbstractMojo {
      * @throws MojoExecutionException When a directory failed to get deleted.
      * @see org.apache.maven.plugin.Mojo#execute()
      */
+    @Override
     public void execute() throws MojoExecutionException {
         if (skip) {
             getLog().info("Clean is skipped.");
