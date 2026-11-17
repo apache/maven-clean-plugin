@@ -123,7 +123,7 @@ class BackgroundCleanerTest {
      * return the same instance (session-scoped singleton).
      */
     @Test
-    void getOrCreateReturnsSameInstance(@TempDir Path tempDir) throws IOException {
+    void getOrCreateReturnsSameInstance(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
         Log log = mock(Log.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
@@ -142,7 +142,7 @@ class BackgroundCleanerTest {
      * {@code fastMode}, a warn-level message must be emitted (first-wins semantics).
      */
     @Test
-    void getOrCreateLogsWarnOnConfigMismatch(@TempDir Path tempDir) throws IOException {
+    void getOrCreateLogsWarnOnConfigMismatch(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
         Log log = mock(Log.class);
         Session session = mockSession(null);
@@ -159,7 +159,7 @@ class BackgroundCleanerTest {
      * parameters, no warn message about a mismatch must be emitted.
      */
     @Test
-    void getOrCreateNoWarnWhenSameConfig(@TempDir Path tempDir) throws IOException {
+    void getOrCreateNoWarnWhenSameConfig(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
         Log log = mock(Log.class);
         Session session = mockSession(null);
@@ -334,7 +334,7 @@ class BackgroundCleanerTest {
      * and the constructor must complete normally.
      */
     @Test
-    void scanForLeftoversIsNoOpWhenFastDirAbsent(@TempDir Path tempDir) throws IOException {
+    void scanForLeftoversIsNoOpWhenFastDirAbsent(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean"); // does NOT exist
         Log log = mock(Log.class);
         Session session = mockSession(null);
