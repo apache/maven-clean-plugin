@@ -184,7 +184,7 @@ class CleanMojoTest {
         File f = new File(getBasedir(), "buildDirectory/file.txt");
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
-            assertThrows(MojoException.class, () -> mojo.execute());
+            assertThrows(MojoException.class, mojo::execute);
         }
     }
 

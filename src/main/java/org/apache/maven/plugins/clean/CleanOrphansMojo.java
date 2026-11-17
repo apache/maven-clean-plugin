@@ -209,6 +209,6 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
      * Indicates whether verbose output is enabled.
      */
     private boolean isVerbose() {
-        return (verbose != null) ? verbose : logger.isDebugEnabled();
+        return verbose != null ? verbose : logger.isDebugEnabled();
     }
 }
