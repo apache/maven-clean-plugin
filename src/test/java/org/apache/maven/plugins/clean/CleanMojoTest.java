@@ -177,7 +177,6 @@ class CleanMojoTest {
             mojo.execute();
             fail("Should fail to delete a file that is locked");
         } catch (MojoExecutionException expected) {
-            assertTrue(true);
         }
     }
 
@@ -201,7 +200,6 @@ class CleanMojoTest {
         try (FileChannel channel = new RandomAccessFile(f, "rw").getChannel();
                 FileLock ignored = channel.lock()) {
             mojo.execute();
-            assertTrue(true);
         } catch (MojoExecutionException expected) {
             fail("Should display a warning when deleting a file that is locked");
         }
