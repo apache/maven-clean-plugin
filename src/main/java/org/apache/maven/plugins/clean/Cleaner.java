@@ -394,7 +394,7 @@ class Cleaner {
         }
     }
 
-    private static class BackgroundCleaner extends Thread {
+    private static final class BackgroundCleaner extends Thread {
 
         private static final int NEW = 0;
         private static final int RUNNING = 1;
