@@ -34,7 +34,7 @@ import org.apache.maven.api.EventType;
 import org.apache.maven.api.Listener;
 import org.apache.maven.api.Session;
 import org.apache.maven.api.SessionData;
-import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.logging.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -125,7 +125,7 @@ class BackgroundCleanerTest {
     @Test
     void getOrCreateReturnsSameInstance(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
         Session session = mockSession(captor);
 
@@ -144,14 +144,14 @@ class BackgroundCleanerTest {
     @Test
     void getOrCreateLogsWarnOnConfigMismatch(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         Session session = mockSession(null);
 
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         // Second call with different fastMode — should log a warn message.
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.AT_END);
 
-        verify(log, atLeastOnce()).warn(any(CharSequence.class));
+        verify(log, atLeastOnce()).warn(any(String.class));
     }
 
     /**
@@ -161,13 +161,13 @@ class BackgroundCleanerTest {
     @Test
     void getOrCreateNoWarnWhenSameConfig(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean");
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         Session session = mockSession(null);
 
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
         BackgroundCleaner.getOrCreate(session, log, fastDir, FastMode.BACKGROUND);
 
-        verify(log, never()).warn(any(CharSequence.class));
+        verify(log, never()).warn(any(String.class));
     }
 
     // -----------------------------------------------------------------------
@@ -190,7 +190,7 @@ class BackgroundCleanerTest {
         Path target = createDirectory(tempDir.resolve("target"));
         createFile(target.resolve("file.txt"));
 
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
         Session session = mockSession(captor);
 
@@ -243,7 +243,7 @@ class BackgroundCleanerTest {
         // throws AccessDeniedException — this is the case force=true handles.
         Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
 
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
         Session session = mockSession(captor);
 
@@ -282,7 +282,7 @@ class BackgroundCleanerTest {
         Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("r--r--r--"));
         Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
 
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
         Session session = mockSession(captor);
 
@@ -315,7 +315,7 @@ class BackgroundCleanerTest {
         Path leftover = createDirectory(fastDir.resolve("module-1234567890"));
         createFile(leftover.resolve("stale.class"));
 
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
         Session session = mockSession(captor);
 
@@ -336,7 +336,7 @@ class BackgroundCleanerTest {
     @Test
     void scanForLeftoversIsNoOpWhenFastDirAbsent(@TempDir Path tempDir) throws Exception {
         Path fastDir = tempDir.resolve(".clean"); // does NOT exist
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         Session session = mockSession(null);
 
         // Must not throw.
@@ -365,7 +365,7 @@ class BackgroundCleanerTest {
         createFile(subDir.resolve("file.txt"));
         Files.setPosixFilePermissions(subDir, PosixFilePermissions.fromString("r-xr-xr-x"));
 
-        Log log = mock(Log.class);
+        Logger log = mock(Logger.class);
         ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
         Session session = mockSession(captor);
 
@@ -380,7 +380,7 @@ class BackgroundCleanerTest {
             // Must not throw — errors are logged as warnings, not propagated.
             captor.getValue().onEvent(event);
             // Verify a warning was logged.
-            verify(log, atLeastOnce()).warn(any(CharSequence.class), any(Throwable.class));
+            verify(log, atLeastOnce()).warn(any(String.class), any(Throwable.class));
         } finally {
             makeWritableRecursively(tempDir);
         }
