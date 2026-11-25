@@ -17,9 +17,6 @@
  * under the License.
  */
 
-import java.util.jar.*
-import java.util.regex.*
-
 String[] expected = ["ext", "ext/file.txt", "ext/dir/file.txt",]
 
 for (String path : expected) {

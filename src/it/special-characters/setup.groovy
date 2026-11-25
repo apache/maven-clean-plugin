@@ -17,13 +17,6 @@
  * under the License.
  */
 
-import java.io.*
-import java.util.*
-import java.util.jar.*
-import java.util.regex.*
-import org.apache.maven.plugin.clean.*
-
-
 File parentDir = new File(basedir, "target")
 File target = new File(parentDir, "Pep\u00E9 le Pew")
 target.mkdirs()

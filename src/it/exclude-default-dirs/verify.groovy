@@ -17,9 +17,6 @@
  * under the License.
  */
 
-import java.util.jar.*
-import java.util.regex.*
-
 String[] expected = [
     "target",
     "target/test-1.0-SNAPSHOT.jar",

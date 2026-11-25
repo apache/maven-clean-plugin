@@ -17,9 +17,6 @@
  * under the License.
  */
 
-import java.util.jar.*
-import java.util.regex.*
-
 String[] unexpected = ["delete-me",]
 for (String path : unexpected) {
     File file = new File(basedir, path)
