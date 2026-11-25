@@ -17,41 +17,26 @@
  * under the License.
  */
 
-import java.io.*;
+import java.io.*
 
-def expected = [
-    "ext",
-    "ext/file.txt",
-    "ext/dir/file.txt",
-];
+def expected = ["ext", "ext/file.txt", "ext/dir/file.txt",]
 
-for ( String path : expected )
-{
-    File file = new File( basedir, path );
-    println "Checking for existence of " + file;
-    if ( !file.exists() )
-    {
-        println "FAILURE!";
-        return false;
+for (String path : expected) {
+    File file = new File(basedir, path)
+    println "Checking for existence of " + file
+    if (!file.exists()) {
+        println "FAILURE!"
+        return false
     }
 }
 
-def unexpected = [
-    "target/link.txt",
-    "target/link",
-    "target",
-    "target2/link.txt",
-    "target2/link",
-    "target2",
-];
+def unexpected = ["target/link.txt", "target/link", "target", "target2/link.txt", "target2/link", "target2",]
 
-for ( String path : unexpected )
-{
-    File file = new File( basedir, path );
-    println "Checking for absence of " + file;
-    if ( file.exists() )
-    {
-        println "FAILURE!";
-        return false;
+for (String path : unexpected) {
+    File file = new File(basedir, path)
+    println "Checking for absence of " + file
+    if (file.exists()) {
+        println "FAILURE!"
+        return false
     }
 }

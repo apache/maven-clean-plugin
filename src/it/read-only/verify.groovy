@@ -17,10 +17,10 @@
  * under the License.
  */
 
-import java.io.File;
+import java.io.File
 
 if (new File(basedir, "target").exists()) {
-    System.out.println("target should have been deleted.");
-    return false;
+    System.out.println("target should have been deleted.")
+    return false
 }
-return true;
+return true

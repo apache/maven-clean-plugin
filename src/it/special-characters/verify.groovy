@@ -17,26 +17,22 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
+import java.io.*
+import java.util.*
+import java.util.jar.*
+import java.util.regex.*
 
-try
-{
-	// this confirms that special character file and directory are deleted 
-    File targetDir = new File( basedir, "target" );
-    if ( targetDir.exists() )
-    {
-        System.out.println( "FAILURE!  target must not exist" );
-        return false;
+try {
+    // this confirms that special character file and directory are deleted
+    File targetDir = new File(basedir, "target")
+    if (targetDir.exists()) {
+        System.out.println("FAILURE!  target must not exist")
+        return false
     }
-
 }
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
+catch(Throwable t) {
+    t.printStackTrace()
+    return false
 }
 
-return true;
+return true

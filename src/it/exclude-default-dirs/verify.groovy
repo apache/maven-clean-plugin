@@ -17,13 +17,12 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
+import java.io.*
+import java.util.*
+import java.util.jar.*
+import java.util.regex.*
 
-try
-{
+try {
     String[] expected = [
         "target",
         "target/test-1.0-SNAPSHOT.jar",
@@ -33,36 +32,29 @@ try
         "target/test-classes/test.properties",
         "target/site",
         "target/site/index.html",
-    ];
-    for ( String path : expected )
-    {
-        File file = new File( basedir, path );
-        System.out.println( "Checking for existence of " + file );
-        if ( !file.exists() )
-        {
-            System.out.println( "FAILURE!" );
-            return false;
+    ]
+    for (String path : expected) {
+        File file = new File(basedir, path)
+        System.out.println("Checking for existence of " + file)
+        if (!file.exists()) {
+            System.out.println("FAILURE!")
+            return false
         }
     }
 
-    String[] unexpected = [
-        "delete-me",
-    ];
-    for ( String path : unexpected )
-    {
-        File file = new File( basedir, path );
-        System.out.println( "Checking for absence of " + file );
-        if ( file.exists() )
-        {
-            System.out.println( "FAILURE!" );
-            return false;
+    String[] unexpected = ["delete-me",]
+    for (String path : unexpected) {
+        File file = new File(basedir, path)
+        System.out.println("Checking for absence of " + file)
+        if (file.exists()) {
+            System.out.println("FAILURE!")
+            return false
         }
     }
 }
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
+catch(Throwable t) {
+    t.printStackTrace()
+    return false
 }
 
-return true;
+return true

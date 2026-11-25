@@ -17,26 +17,24 @@
  * under the License.
  */
 
-import java.nio.file.*;
-import java.nio.file.attribute.*;
+import java.nio.file.*
+import java.nio.file.attribute.*
 
 def pairs =
-[
-    [ "ext/file.txt", "target/link.txt" ],
-    [ "ext/dir", "target/link" ],
-    [ "ext/file.txt", "target2/link.txt" ],
-    [ "ext/dir", "target2/link" ],
-];
+        [
+            ["ext/file.txt", "target/link.txt"],
+            ["ext/dir", "target/link"],
+            ["ext/file.txt", "target2/link.txt"],
+            ["ext/dir", "target2/link"],
+        ]
 
-for ( pair : pairs )
-{
-    Path target = basedir.toPath().resolve( pair[0] );
-    Path link = basedir.toPath().resolve( pair[1] );
-    System.out.println( "Creating symlink " + link + " -> " + target );
-    Files.createSymbolicLink( link, target, new FileAttribute[0] );
-    if ( !Files.exists( link, new LinkOption[0] ) )
-    {
-        println "Platform does not support symlinks, skipping test.";
-        return;
+for (pair : pairs) {
+    Path target = basedir.toPath().resolve(pair[0])
+    Path link = basedir.toPath().resolve(pair[1])
+    System.out.println("Creating symlink " + link + " -> " + target)
+    Files.createSymbolicLink(link, target, new FileAttribute[0])
+    if (!Files.exists(link, new LinkOption[0])) {
+        println "Platform does not support symlinks, skipping test."
+        return
     }
 }

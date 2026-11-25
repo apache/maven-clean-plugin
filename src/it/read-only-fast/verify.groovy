@@ -17,15 +17,15 @@
  * under the License.
  */
 
-import java.io.File;
+import java.io.File
 
 if (new File(basedir, "target").exists()) {
-    System.out.println("FAILURE: 'target' has not been deleted.");
-    return false;
+    System.out.println("FAILURE: 'target' has not been deleted.")
+    return false
 }
 if (new File(basedir, ".fastdir").exists()) {
-    System.out.println("FAILURE: '.fastdir' has not been deleted (read-only files left behind).");
-    return false;
+    System.out.println("FAILURE: '.fastdir' has not been deleted (read-only files left behind).")
+    return false
 }
 
 File buildLog = new File(basedir, 'build.log')

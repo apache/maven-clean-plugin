@@ -22,8 +22,8 @@
 // This regression was introduced in Maven 4.0.0-beta-1 and fixed in apache/maven#2124.
 // The clean lifecycle should not resolve dependencies, so module1 need not be installed.
 
-def log = new File( basedir, 'build.log' ).text
+def log = new File(basedir, 'build.log').text
 
-assert log.contains( 'BUILD SUCCESS' ) : 'expected BUILD SUCCESS'
+assert log.contains('BUILD SUCCESS') : 'expected BUILD SUCCESS'
 assert !log.contains( 'Could not resolve dependencies' ) : 'clean should not attempt dependency resolution'
 assert !log.contains( 'DependencyResolutionException' ) : 'clean should not attempt dependency resolution'
