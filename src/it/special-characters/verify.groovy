@@ -20,6 +20,6 @@
 import java.util.jar.*
 import java.util.regex.*
 
-// this confirms that special character file and directory are deleted 
-File targetDir = new File( basedir, "target" )
+// this confirms that special character file and directory are deleted
+File targetDir = new File(basedir, "target")
 assert !targetDir.exists() : "target must not exist"

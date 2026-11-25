@@ -20,12 +20,9 @@
 import java.util.jar.*
 import java.util.regex.*
 
-String[] unexpected = [
-    "delete-me",
-]
-for ( String path : unexpected )
-{
-    File file = new File( basedir, path )
-    System.out.println( "Checking for absence of " + file )
+String[] unexpected = ["delete-me",]
+for (String path : unexpected) {
+    File file = new File(basedir, path)
+    System.out.println("Checking for absence of " + file)
     assert !file.exists()
 }

@@ -20,12 +20,12 @@
 import java.util.jar.*
 import java.util.regex.*
 
-File targetDir = new File( basedir, "target" )
-System.out.println( "Checking for absence of " + targetDir )
+File targetDir = new File(basedir, "target")
+System.out.println("Checking for absence of " + targetDir)
 assert targetDir.exists()
 
-File targetClasses = new File( targetDir, "classes" )
+File targetClasses = new File(targetDir, "classes")
 assert targetClasses.exists()
 
-File targetTestsClasses = new File( targetDir, "test-classes" )
+File targetTestsClasses = new File(targetDir, "test-classes")
 assert !targetTestsClasses.exists()

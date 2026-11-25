@@ -20,31 +20,18 @@
 import java.util.jar.*
 import java.util.regex.*
 
-String[] expected = [
-    "ext",
-    "ext/file.txt",
-    "ext/dir/file.txt",
-]
+String[] expected = ["ext", "ext/file.txt", "ext/dir/file.txt",]
 
-for ( String path : expected )
-{
-    File file = new File( basedir, path )
-    System.out.println( "Checking for existence of " + file )
+for (String path : expected) {
+    File file = new File(basedir, path)
+    System.out.println("Checking for existence of " + file)
     assert file.exists()
 }
 
-String[] unexpected = [
-    "target/link.txt",
-    "target/link",
-    "target",
-    "target2/link.txt",
-    "target2/link",
-    "target2",
-]
+String[] unexpected = ["target/link.txt", "target/link", "target", "target2/link.txt", "target2/link", "target2",]
 
-for ( String path : unexpected )
-{
-    File file = new File( basedir, path )
-    System.out.println( "Checking for absence of " + file )
+for (String path : unexpected) {
+    File file = new File(basedir, path)
+    System.out.println("Checking for absence of " + file)
     assert !file.exists()
 }
