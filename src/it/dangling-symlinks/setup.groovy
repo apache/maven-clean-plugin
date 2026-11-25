@@ -17,33 +17,24 @@
  * under the License.
  */
 
-import java.nio.file.*;
-import java.nio.file.attribute.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
-import org.apache.maven.plugins.clean.*;
+import java.nio.file.*
+import java.nio.file.attribute.*
+import java.util.jar.*
+import java.util.regex.*
+import org.apache.maven.plugins.clean.*
 
-try
+Path targetDir = basedir.toPath().resolve( "target" )
+Path link = targetDir.resolve( "link" )
+Path target = targetDir.resolve( "link-target.txt" )
+
+System.out.println( "Creating symlink " + link + " -> " + target )
+Files.createSymbolicLink( link, target, new FileAttribute[0] )
+if ( !Files.exists( link, new LinkOption[0] ) )
 {
-    Path targetDir = basedir.toPath().resolve( "target" );
-    Path link = targetDir.resolve( "link" );
-    Path target = targetDir.resolve( "link-target.txt" );
-
-    System.out.println( "Creating symlink " + link + " -> " + target );
-    Files.createSymbolicLink( link, target, new FileAttribute[0] );
-    if ( !Files.exists( link, new LinkOption[0] ) )
-    {
-        System.out.println( "FAILURE, platform does not support symlinks, skipping test." );
-    }
-
-    System.out.println( "Deleting symlink target " + target );
-    Files.delete( target );
-}
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
+    System.out.println( "FAILURE, platform does not support symlinks, skipping test." )
 }
 
-return true;
+System.out.println( "Deleting symlink target " + target )
+Files.delete( target )
+
+return true

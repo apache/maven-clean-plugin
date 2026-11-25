@@ -17,40 +17,15 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
+import java.util.jar.*
+import java.util.regex.*
 
-try
-{
-    File targetDir = new File( basedir, "target" );
-    System.out.println( "Checking for absence of " + targetDir );
-    if ( !targetDir.exists() )
-    {
-        System.out.println( "FAILURE!  target must exists" );
-        return false;
-    }
+File targetDir = new File( basedir, "target" )
+System.out.println( "Checking for absence of " + targetDir )
+assert targetDir.exists()
 
-    File targetClasses = new File( targetDir, "classes" );
-    if ( !targetClasses.exists() )
-    {
-        System.out.println( "FAILURE!  target/classes must exists" );
-        return false;
-    }
+File targetClasses = new File( targetDir, "classes" )
+assert targetClasses.exists()
 
-    File targetTestsClasses = new File( targetDir, "test-classes" );
-    if ( targetTestsClasses.exists() )
-    {
-        System.out.println( "FAILURE!  target/test-classes must not exists" );
-        return false;
-    }
-
-}
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
-}
-
-return true;
+File targetTestsClasses = new File( targetDir, "test-classes" )
+assert !targetTestsClasses.exists()
