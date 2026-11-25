@@ -17,18 +17,18 @@
  * under the License.
  */
 
-import java.io.File;
+import java.io.File
 
 // Make the file read-only.
 if (!new File(basedir, "target/read-only-dir/read-only.properties").setWritable(false)) {
-    System.out.println("Cannot change file permission.");
-    return false;
+    System.out.println("Cannot change file permission.")
+    return false
 }
 if (File.separatorChar == '/' as char) {
     // Directory permission can be changed only on Unix, not on Windows.
     if (!new File(basedir, "target/read-only-dir").setWritable(false)) {
-        System.out.println("Cannot change directory permission.");
-        return false;
+        System.out.println("Cannot change directory permission.")
+        return false
     }
 }
-return true;
+return true

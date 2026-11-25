@@ -17,25 +17,22 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
+import java.io.*
+import java.util.*
+import java.util.jar.*
+import java.util.regex.*
 
-try
-{
-    File targetDir = new File( basedir, "target" );
-    System.out.println( "Checking for existence of " + targetDir );
-    if ( !targetDir.isDirectory() )
-    {
-        System.out.println( "FAILURE!" );
-        return false;
+try {
+    File targetDir = new File(basedir, "target")
+    System.out.println("Checking for existence of " + targetDir)
+    if (!targetDir.isDirectory()) {
+        System.out.println("FAILURE!")
+        return false
     }
 }
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
+catch(Throwable t) {
+    t.printStackTrace()
+    return false
 }
 
-return true;
+return true

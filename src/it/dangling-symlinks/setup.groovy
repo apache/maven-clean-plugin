@@ -17,29 +17,26 @@
  * under the License.
  */
 
-import java.nio.file.*;
-import java.nio.file.attribute.*;
+import java.nio.file.*
+import java.nio.file.attribute.*
 
-try
-{
-    Path targetDir = basedir.toPath().resolve( "target" );
-    Path link = targetDir.resolve( "link" );
-    Path target = targetDir.resolve( "link-target.txt" );
+try {
+    Path targetDir = basedir.toPath().resolve("target")
+    Path link = targetDir.resolve("link")
+    Path target = targetDir.resolve("link-target.txt")
 
-    System.out.println( "Creating symlink " + link + " -> " + target );
-    Files.createSymbolicLink( link, target, new FileAttribute[0] );
-    if ( !Files.exists( link, new LinkOption[0] ) )
-    {
-        System.out.println( "Platform does not support symlinks, skipping test." );
+    System.out.println("Creating symlink " + link + " -> " + target)
+    Files.createSymbolicLink(link, target, new FileAttribute[0])
+    if (!Files.exists(link, new LinkOption[0])) {
+        System.out.println("Platform does not support symlinks, skipping test.")
     }
 
-    System.out.println( "Deleting symlink target " + target );
-    Files.delete( target );
+    System.out.println("Deleting symlink target " + target)
+    Files.delete(target)
 }
-catch( Exception ex )
-{
-    ex.printStackTrace();
-    return false;
+catch(Exception ex) {
+    ex.printStackTrace()
+    return false
 }
 
-return true;
+return true

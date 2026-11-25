@@ -17,25 +17,19 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
+import java.io.*
+import java.util.*
+import java.util.jar.*
+import java.util.regex.*
 
-try
-{
-    String[] expected = [
-        "temp-stuff/test.txt",
-        "deploy/test.txt",
-    ];
-    for ( String path : expected )
-    {
-        File file = new File( basedir, path );
-        System.out.println( "Checking for existence of " + file );
-        if ( !file.exists() )
-        {
-            System.out.println( "FAILURE!" );
-            return false;
+try {
+    String[] expected = ["temp-stuff/test.txt", "deploy/test.txt",]
+    for (String path : expected) {
+        File file = new File(basedir, path)
+        System.out.println("Checking for existence of " + file)
+        if (!file.exists()) {
+            System.out.println("FAILURE!")
+            return false
         }
     }
 
@@ -45,22 +39,19 @@ try
         "child-a/temp-stuff",
         "child-b/target",
         "child-b/deploy",
-    ];
-    for ( String path : unexpected )
-    {
-        File file = new File( basedir, path );
-        System.out.println( "Checking for absence of " + file );
-        if ( file.exists() )
-        {
-            System.out.println( "FAILURE!" );
-            return false;
+    ]
+    for (String path : unexpected) {
+        File file = new File(basedir, path)
+        System.out.println("Checking for absence of " + file)
+        if (file.exists()) {
+            System.out.println("FAILURE!")
+            return false
         }
     }
 }
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
+catch(Throwable t) {
+    t.printStackTrace()
+    return false
 }
 
-return true;
+return true

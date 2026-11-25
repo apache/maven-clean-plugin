@@ -22,10 +22,10 @@
 // - The shared staging directory (.fastdir) should be cleaned up
 // - The background cleaner thread should have run (session-scoped sharing)
 
-def log = new File( basedir, 'build.log' ).text
+def log = new File(basedir, 'build.log').text
 
 // Both modules must have their target directories cleaned
-assert !new File( basedir, 'module-force/target' ).exists() : 'module-force/target should have been deleted'
+assert !new File(basedir, 'module-force/target').exists() : 'module-force/target should have been deleted'
 assert !new File( basedir, 'module-noforce/target' ).exists() : 'module-noforce/target should have been deleted'
 
 // The shared staging directory should be cleaned after the session ends

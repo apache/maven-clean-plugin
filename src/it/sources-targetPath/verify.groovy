@@ -17,6 +17,6 @@
  * under the License.
  */
 
-import java.io.File;
+import java.io.File
 
-return !(new File(basedir, "target").exists() || new File(basedir, "outside-target").exists());
+return !(new File(basedir, "target").exists() || new File(basedir, "outside-target").exists())
