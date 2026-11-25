@@ -20,6 +20,6 @@
 import java.util.jar.*
 import java.util.regex.*
 
-File targetDir = new File( basedir, "target" )
-System.out.println( "Checking for existence of " + targetDir )
+File targetDir = new File(basedir, "target")
+System.out.println("Checking for existence of " + targetDir)
 assert targetDir.isDirectory()

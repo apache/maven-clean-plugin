@@ -25,26 +25,21 @@ String[] expected = [
     "dir0/sub0/excluded.txt",
     "dir0/sub1",
     "dir0/sub2/excluded.txt",
-
     "dir1/excluded.txt",
     "dir1/sub0/excluded.txt",
     "dir1/sub1",
     "dir1/sub2/excluded.txt",
-
     "dir2/excluded.txt",
     "dir2/sub0/excluded.txt",
     "dir2/sub2/excluded.txt",
-
     "dir3/excluded.txt",
     "dir3/sub0/excluded.txt",
     "dir3/sub2/excluded.txt",
-
     "dir4/excluded/file.txt",
 ]
-for ( String path : expected )
-{
-    File file = new File( new File( basedir, "dirs" ), path )
-    System.out.println( "Checking for existence of " + file )
+for (String path : expected) {
+    File file = new File(new File(basedir, "dirs"), path)
+    System.out.println("Checking for existence of " + file)
     assert file.exists()
 }
 
@@ -52,25 +47,20 @@ String[] unexpected = [
     "dir0/included.txt",
     "dir0/sub0/included.txt",
     "dir0/sub1/included.txt",
-
     "dir1/included.txt",
     "dir1/sub0/included.txt",
     "dir1/sub1/included.txt",
-
     "dir2/included.txt",
     "dir2/sub0/included.txt",
     "dir2/sub1",
-
     "dir3/included.txt",
     "dir3/sub0/included.txt",
     "dir3/sub1",
-
     "dir4/file.txt",
     "dir4/included/file.txt",
 ]
-for ( String path : unexpected )
-{
-    File file = new File( new File( basedir, "dirs" ), path )
-    System.out.println( "Checking for absence of " + file )
+for (String path : unexpected) {
+    File file = new File(new File(basedir, "dirs"), path)
+    System.out.println("Checking for absence of " + file)
     assert !file.exists()
 }
