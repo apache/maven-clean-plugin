@@ -17,9 +17,6 @@
  * under the License.
  */
 
-import java.util.jar.*
-import java.util.regex.*
-
 String[] expected = ["temp-stuff/test.txt", "deploy/test.txt",]
 for (String path : expected) {
     File file = new File(basedir, path)

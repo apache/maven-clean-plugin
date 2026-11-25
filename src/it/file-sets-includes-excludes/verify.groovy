@@ -17,9 +17,6 @@
  * under the License.
  */
 
-import java.util.jar.*
-import java.util.regex.*
-
 String[] expected = [
     "dir0/excluded.txt",
     "dir0/sub0/excluded.txt",

@@ -19,10 +19,6 @@
 
 import java.nio.file.*
 import java.nio.file.attribute.*
-import java.util.*
-import java.util.jar.*
-import java.util.regex.*
-import org.apache.maven.plugins.clean.*
 
 String[][] pairs =
         [
