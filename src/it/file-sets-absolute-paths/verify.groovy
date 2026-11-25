@@ -17,31 +17,15 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.jar.*;
-import java.util.regex.*;
+import java.util.jar.*
+import java.util.regex.*
 
-try
+String[] unexpected = [
+    "delete-me",
+]
+for ( String path : unexpected )
 {
-    String[] unexpected = [
-        "delete-me",
-    ];
-    for ( String path : unexpected )
-    {
-        File file = new File( basedir, path );
-        System.out.println( "Checking for absence of " + file );
-        if ( file.exists() )
-        {
-            System.out.println( "FAILURE!" );
-            return false;
-        }
-    }
+    File file = new File( basedir, path )
+    System.out.println( "Checking for absence of " + file )
+    assert !file.exists()
 }
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
-}
-
-return true;
