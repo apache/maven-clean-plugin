@@ -648,7 +648,7 @@ final class BackgroundCleaner implements Listener, Runnable {
             }
         } catch (InterruptedException e) {
             // Someone decided that we waited long enough.
-            logger.atWarn().withThrowable(e).log("");
+            logger.warn("Interrupted while waiting for background file deletion.", e);
         }
         run();
     }
