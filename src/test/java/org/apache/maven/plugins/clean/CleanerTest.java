@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.logging.Logger;
 import org.apache.maven.api.services.PathMatcherFactory;
 import org.apache.maven.impl.DefaultPathMatcherFactory;
 import org.junit.jupiter.api.Test;
@@ -56,7 +56,7 @@ import static org.mockito.Mockito.when;
 
 class CleanerTest {
 
-    private final Log log = mock(Log.class);
+    private final Logger log = mock(Logger.class);
 
     /**
      * The factory to use for creating patch matcher.
@@ -89,7 +89,7 @@ class CleanerTest {
         setPosixFilePermissions(basedir, permissions);
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, true, false);
         final var exception = assertThrows(AccessDeniedException.class, () -> cleaner.delete(basedir));
-        verify(log).warn(any(CharSequence.class), any(Throwable.class));
+        verify(log).warn(any(String.class), any(Throwable.class));
         assertTrue(exception.getMessage().contains(basedir.toString()));
     }
 
@@ -117,7 +117,7 @@ class CleanerTest {
         setPosixFilePermissions(basedir, permissions);
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, false);
         assertDoesNotThrow(() -> cleaner.delete(basedir));
-        verify(log).warn(any(CharSequence.class), any(Throwable.class));
+        verify(log).warn(any(String.class), any(Throwable.class));
         InOrder inOrder = inOrder(log);
         ArgumentCaptor<AccessDeniedException> cause1 = ArgumentCaptor.forClass(AccessDeniedException.class);
         inOrder.verify(log).warn(eq("Failed to delete " + file), cause1.capture());
@@ -135,7 +135,7 @@ class CleanerTest {
         setPosixFilePermissions(basedir, permissions);
         final var cleaner = new Cleaner(matcherFactory, log, false, false, false, false, false);
         assertDoesNotThrow(() -> cleaner.delete(basedir));
-        verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
+        verify(log, never()).warn(any(String.class), any(Throwable.class));
     }
 
     /**
@@ -185,7 +185,7 @@ class CleanerTest {
         long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
         // The retry should have succeeded: no warning logged, files gone.
-        verify(log, never()).warn(any(CharSequence.class), any(Throwable.class));
+        verify(log, never()).warn(any(String.class), any(Throwable.class));
         assertFalse(exists(file), "File should have been deleted by the batch retry");
         assertFalse(exists(basedir), "Base directory should have been deleted by the batch retry");
 
@@ -222,10 +222,10 @@ class CleanerTest {
         // Only one warning should be logged — for the file that could not be deleted.
         // The directory warning (DirectoryNotEmptyException) is suppressed because its
         // child (the file) also failed, avoiding the warning cascade (see review finding #1).
-        ArgumentCaptor<CharSequence> warnMsg = ArgumentCaptor.forClass(CharSequence.class);
+        ArgumentCaptor<String> warnMsg = ArgumentCaptor.forClass(String.class);
         verify(log, org.mockito.Mockito.times(1)).warn(warnMsg.capture(), any(Throwable.class));
         assertTrue(
-                warnMsg.getValue().toString().contains(file.toString()),
+                warnMsg.getValue().contains(file.toString()),
                 "Warning should reference the failed file, not a parent directory");
         // The original file should still exist because it could not be deleted.
         assertTrue(exists(file), "File should still exist when batch retry also fails");
@@ -247,7 +247,7 @@ class CleanerTest {
         final var cleaner = new Cleaner(matcherFactory, log, false, true, false, true, false);
         cleaner.delete(link);
         assertFalse(exists(target));
-        verify(log, never()).debug(any(CharSequence.class));
-        verify(log, never()).debug(any(CharSequence.class), any(Throwable.class));
+        verify(log, never()).debug(any(String.class));
+        verify(log, never()).debug(any(String.class), any(Throwable.class));
     }
 }

@@ -28,7 +28,7 @@ import java.util.Objects;
 import org.apache.maven.api.Project;
 import org.apache.maven.api.Session;
 import org.apache.maven.api.di.Inject;
-import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.logging.Logger;
 import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.annotations.Mojo;
 import org.apache.maven.api.plugin.annotations.Parameter;
@@ -57,7 +57,7 @@ public class CleanMojo implements org.apache.maven.api.plugin.Mojo {
      * The logger where to send information about what the plugin is doing.
      */
     @Inject
-    private Log logger;
+    private Logger logger;
 
     /**
      * The directory where build results went.

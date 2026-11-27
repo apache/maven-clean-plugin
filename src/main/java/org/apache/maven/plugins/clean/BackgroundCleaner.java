@@ -44,7 +44,7 @@ import org.apache.maven.api.Listener;
 import org.apache.maven.api.Session;
 import org.apache.maven.api.SessionData;
 import org.apache.maven.api.annotations.Nonnull;
-import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.logging.Logger;
 
 /**
  * A session-scoped service that moves directories to a staging area and deletes them in a background thread.
@@ -139,7 +139,7 @@ final class BackgroundCleaner implements Listener, Runnable {
      * The logger where to send information about what the plugin is doing.
      */
     @Nonnull
-    private final Log logger;
+    private final Logger logger;
 
     /**
      * The directory where to temporarily move the files to delete.
@@ -205,7 +205,7 @@ final class BackgroundCleaner implements Listener, Runnable {
      * @param fastMode  the fast deletion mode
      */
     private BackgroundCleaner(
-            @Nonnull Session session, @Nonnull Log logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
+            @Nonnull Session session, @Nonnull Logger logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
         this.session = session;
         this.logger = logger;
         this.fastDir = fastDir;
@@ -242,7 +242,7 @@ final class BackgroundCleaner implements Listener, Runnable {
      * @return the shared background cleaner instance for the session
      */
     static BackgroundCleaner getOrCreate(
-            @Nonnull Session session, @Nonnull Log logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
+            @Nonnull Session session, @Nonnull Logger logger, @Nonnull Path fastDir, @Nonnull FastMode fastMode) {
         boolean[] created = {false};
         BackgroundCleaner bc = session.getData().computeIfAbsent(KEY, () -> {
             created[0] = true;
@@ -648,7 +648,7 @@ final class BackgroundCleaner implements Listener, Runnable {
             }
         } catch (InterruptedException e) {
             // Someone decided that we waited long enough.
-            logger.warn(e);
+            logger.warn("Interrupted while waiting for background file deletion.", e);
         }
         run();
     }

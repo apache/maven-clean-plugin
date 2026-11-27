@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.maven.api.annotations.Nonnull;
-import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.logging.Logger;
 import org.apache.maven.api.services.PathMatcherFactory;
 
 /**
@@ -69,7 +69,7 @@ final class Cleaner implements FileVisitor<Path> {
      * The logger where to send information or warning messages.
      */
     @Nonnull
-    private final Log logger;
+    private final Logger logger;
 
     /**
      * Whether to send to the logger some information that would normally be at the "debug" level.
@@ -228,7 +228,7 @@ final class Cleaner implements FileVisitor<Path> {
      */
     Cleaner(
             @Nonnull PathMatcherFactory matcherFactory,
-            @Nonnull Log logger,
+            @Nonnull Logger logger,
             boolean verbose,
             boolean followSymlinks,
             boolean force,

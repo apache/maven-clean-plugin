@@ -28,7 +28,7 @@ import java.util.List;
 
 import org.apache.maven.api.Project;
 import org.apache.maven.api.di.Inject;
-import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.logging.Logger;
 import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.annotations.Mojo;
 import org.apache.maven.api.plugin.annotations.Parameter;
@@ -60,7 +60,7 @@ public class CleanOrphansMojo implements org.apache.maven.api.plugin.Mojo {
      * The logger where to send information about what the plugin is doing.
      */
     @Inject
-    private Log logger;
+    private Logger logger;
 
     /**
      * The current project instance, used to resolve {@code basedir}.

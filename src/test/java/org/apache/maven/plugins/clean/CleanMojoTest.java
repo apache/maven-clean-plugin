@@ -28,7 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 
-import org.apache.maven.api.plugin.Log;
+import org.apache.maven.api.logging.Logger;
 import org.apache.maven.api.plugin.MojoException;
 import org.apache.maven.api.plugin.testing.Basedir;
 import org.apache.maven.api.plugin.testing.InjectMojo;
@@ -54,7 +54,7 @@ import static org.mockito.Mockito.mock;
 @MojoTest
 class CleanMojoTest {
 
-    private final Log log = mock(Log.class);
+    private final Logger log = mock(Logger.class);
 
     /**
      * The factory to use for creating patch matcher.
