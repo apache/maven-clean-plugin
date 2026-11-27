@@ -225,7 +225,7 @@ class CleanerTest {
         ArgumentCaptor<String> warnMsg = ArgumentCaptor.forClass(String.class);
         verify(log, org.mockito.Mockito.times(1)).warn(warnMsg.capture(), any(Throwable.class));
         assertTrue(
-                warnMsg.getValue().toString().contains(file.toString()),
+                warnMsg.getValue().contains(file.toString()),
                 "Warning should reference the failed file, not a parent directory");
         // The original file should still exist because it could not be deleted.
         assertTrue(exists(file), "File should still exist when batch retry also fails");
